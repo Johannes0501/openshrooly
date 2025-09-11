@@ -215,11 +215,25 @@ display:
         current_ssid = WiFi.SSID();
         current_ip = WiFi.localIP().toString();
       } else {
-        // AP fallback mode
-        auto ip = WiFi.softAPIP().toString();
-        it.print(135, 32, id(font1), "SSID: OpenShrooly");
-        it.printf(135, 44, id(font1), "Waiting to be configured");
+        current_ssid = "OpenShrooly";
+        current_ip = "Waiting to be configured";
       }
+
+      // Update SSID display if it has changed
+      if (previous_ssid != current_ssid) {
+        it.filled_rectangle(135, 32, 160, 12, COLOR_OFF);
+        it.printf(135, 32, id(font1), COLOR_ON, "SSID: %s", current_ssid.c_str());
+      }
+
+      // Update local IP display if it has changed
+      if (previous_ip != current_ip) {
+        it.filled_rectangle(135, 44, 160, 12, COLOR_OFF);
+        it.printf(135, 44, id(font1),  COLOR_ON, "IP: %s", current_ip.c_str());
+      }
+
+      // Update WiFi state variables
+      previous_ssid = current_ssid;
+      previous_ip = current_ip;
 
 binary_sensor:
   - platform: gpio
