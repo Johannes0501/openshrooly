@@ -80,7 +80,7 @@ interval:
     then:
       - component.update: my_display
 
-
+            
 <<: !include components/globals.yaml
 <<: !include components/controls.yaml
 <<: !include components/time.yaml

@@ -4,6 +4,7 @@
 // ========================================================================
 const elementsToHide = [
   "Hidden",             // This will hide the "Hidden" header itself
+  "Sensor and Control",
   "air_exchange_fan",
   "humidifier_fan",
   "rgb_led_strip",
