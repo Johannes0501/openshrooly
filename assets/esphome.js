@@ -3,12 +3,8 @@
 // This is case-sensitive. It will hide any element containing this text.
 // ========================================================================
 const elementsToHide = [
-  "Hidden",             // This will hide the "Hidden" header itself
-  "Sensor and Control",
-  "air_exchange_fan",
-  "humidifier_fan",
-  "rgb_led_strip",
-  "white_led"
+//  "Hidden",             // This will hide the "Hidden" header itself
+
 ];
 // ========================================================================
 

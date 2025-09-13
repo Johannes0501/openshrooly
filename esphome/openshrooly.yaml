@@ -5,16 +5,42 @@ esphome:
   project:
     name: grahamsz.openshrooly
     version: 0.2.3
-#test comment
+
   on_boot:
     priority: -10
     then:
+      # Air exchange manager can run right away
+      - script.execute: air_exchange_manager
+
+      # Wait a couple seconds before programming
+      - delay: 2s
+
+      # Trigger the SWD programmer
+      - swd_programmer.program: swd
+
+      # Wait another 2 seconds for the programming task to complete
+      - delay: 2s
+
+      # Ensure the status sensor has updated to "Success"
+      - wait_until:
+          condition:
+            lambda: 'return id(swd_programmer_status).state == "Success";'
+          timeout: 10s
+
+      # If still not success after timeout, log error
+      - lambda: |-
+          if (id(swd_programmer_status).state != "Success") {
+            ESP_LOGE("boot", "SWD programming failed, continuing without coprocessor ready");
+          }
+
+      # Wait until humidity is valid
       - wait_until:
           condition:
             lambda: 'return !isnan(id(humidity).state);'
           timeout: 30s
+
+      # Now run the humidity control manager
       - script.execute: humidity_control_manager
-      - script.execute: air_exchange_manager
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -29,6 +55,12 @@ api:
 
 ota:
   - platform: esphome
+
+
+external_components:
+  - source: 
+      type: local
+      path: external_components
 
 wifi:
   ap:
@@ -75,7 +107,18 @@ interval:
           } else {
             ESP_LOGW("time", "SNTP time not valid yet");
           }
-  
+
+  - interval: 60s  # Every minute, update the humidifier I2C register just in case it didn't register
+    then:
+      - lambda: |-
+          uint8_t data[2];
+          if (id(humidifier_fan).state) {
+            data[0] = 0x00; data[1] = 0x01;
+            bool err = id(bus_a).write(0x6C, data, 2);           
+          } else {
+            data[0] = 0x00; data[1] = 0x00;
+            bool err = id(bus_a).write(0x6C, data, 2);
+          }  
   - interval: 5min
     then:
       - component.update: my_display
