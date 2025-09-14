@@ -1,6 +1,6 @@
 # ========================================================================
-# BUTTONS CONFIGURATION WITH DYNAMIC BASELINE
-# Physical and touch button inputs with adaptive thresholds
+# BUTTONS CONFIGURATION
+# Physical and touch button inputs with actions
 # ========================================================================
 
 # Touch sensor configuration
@@ -36,7 +36,7 @@ binary_sensor:
           - delay: 2s
           - switch.turn_on: do_factory_reset
 
-  # Touch button 1 with dynamic baseline
+  # Touch button 1
   - platform: esp32_touch
     name: "Button 1"
     icon: mdi:numeric-1-circle
@@ -44,51 +44,16 @@ binary_sensor:
     pin: GPIO10
     web_server:
       sorting_group_id: grp_extras
-    threshold: 35000  # Fallback threshold
+    threshold: 35000  # Adjusted for enclosure
     on_press:
       then:
         - rtttl.play: "btn1:d=8,o=5,b=200:c"
-        - lambda: |-
-            ESP_LOGI("touch", "Button 1 pressed!");
 
     filters:
-      - lambda: |-
-          static float baseline = NAN;
-          static int init_count = 0;
-
-          // Initialize baseline over first 50 readings
-          if (isnan(baseline) || init_count < 50) {
-            if (isnan(baseline)) baseline = x;
-            baseline = baseline * 0.9 + x * 0.1;
-            init_count++;
-            ESP_LOGD("touch", "Button 1 - Initializing baseline: %.0f (reading #%d)", baseline, init_count);
-            return false;
-          }
-
-          // Slow baseline adaptation (ignores touches)
-          if (x > baseline - 300) {
-            baseline = baseline * 0.995 + x * 0.005;
-          }
-
-          // Log every 100th reading
-          static int log_counter = 0;
-          if (++log_counter >= 100) {
-            ESP_LOGI("touch", "Button 1 - Value: %.0f, Baseline: %.0f, Delta: %.0f",
-                     x, baseline, baseline - x);
-            log_counter = 0;
-          }
-
-          // Trigger if 500+ below baseline
-          bool touched = (x < baseline - 500);
-          if (touched) {
-            ESP_LOGI("touch", "Button 1 TOUCHED - Value: %.0f, Baseline: %.0f, Delta: %.0f",
-                     x, baseline, baseline - x);
-          }
-          return touched;
-      - delayed_on: 50ms
+      - delayed_on: 50ms  # Increased debounce
       - delayed_off: 100ms
 
-  # Touch button 2 with dynamic baseline
+  # Touch button 2
   - platform: esp32_touch
     name: "Button 2"
     icon: mdi:numeric-2-circle
@@ -96,51 +61,16 @@ binary_sensor:
     pin: GPIO11
     web_server:
       sorting_group_id: grp_extras
-    threshold: 35000  # Fallback threshold
+    threshold: 35000  # Adjusted for enclosure
     on_press:
       then:
         - rtttl.play: "btn2:d=8,o=5,b=200:d"
-        - lambda: |-
-            ESP_LOGI("touch", "Button 2 pressed!");
 
     filters:
-      - lambda: |-
-          static float baseline = NAN;
-          static int init_count = 0;
-
-          // Initialize baseline over first 50 readings
-          if (isnan(baseline) || init_count < 50) {
-            if (isnan(baseline)) baseline = x;
-            baseline = baseline * 0.9 + x * 0.1;
-            init_count++;
-            ESP_LOGD("touch", "Button 2 - Initializing baseline: %.0f (reading #%d)", baseline, init_count);
-            return false;
-          }
-
-          // Slow baseline adaptation (ignores touches)
-          if (x > baseline - 300) {
-            baseline = baseline * 0.995 + x * 0.005;
-          }
-
-          // Log every 100th reading
-          static int log_counter = 0;
-          if (++log_counter >= 100) {
-            ESP_LOGI("touch", "Button 2 - Value: %.0f, Baseline: %.0f, Delta: %.0f",
-                     x, baseline, baseline - x);
-            log_counter = 0;
-          }
-
-          // Trigger if 500+ below baseline
-          bool touched = (x < baseline - 500);
-          if (touched) {
-            ESP_LOGI("touch", "Button 2 TOUCHED - Value: %.0f, Baseline: %.0f, Delta: %.0f",
-                     x, baseline, baseline - x);
-          }
-          return touched;
-      - delayed_on: 50ms
+      - delayed_on: 50ms  # Increased debounce
       - delayed_off: 100ms
 
-  # Touch button 3 with dynamic baseline
+  # Touch button 3
   - platform: esp32_touch
     name: "Button 3"
     icon: mdi:numeric-3-circle
@@ -148,51 +78,16 @@ binary_sensor:
     pin: GPIO12
     web_server:
       sorting_group_id: grp_extras
-    threshold: 35000  # Fallback threshold
+    threshold: 35000  # Adjusted for enclosure
     on_press:
       then:
         - rtttl.play: "btn3:d=8,o=5,b=200:e"
-        - lambda: |-
-            ESP_LOGI("touch", "Button 3 pressed!");
 
     filters:
-      - lambda: |-
-          static float baseline = NAN;
-          static int init_count = 0;
-
-          // Initialize baseline over first 50 readings
-          if (isnan(baseline) || init_count < 50) {
-            if (isnan(baseline)) baseline = x;
-            baseline = baseline * 0.9 + x * 0.1;
-            init_count++;
-            ESP_LOGD("touch", "Button 3 - Initializing baseline: %.0f (reading #%d)", baseline, init_count);
-            return false;
-          }
-
-          // Slow baseline adaptation (ignores touches)
-          if (x > baseline - 300) {
-            baseline = baseline * 0.995 + x * 0.005;
-          }
-
-          // Log every 100th reading
-          static int log_counter = 0;
-          if (++log_counter >= 100) {
-            ESP_LOGI("touch", "Button 3 - Value: %.0f, Baseline: %.0f, Delta: %.0f",
-                     x, baseline, baseline - x);
-            log_counter = 0;
-          }
-
-          // Trigger if 500+ below baseline
-          bool touched = (x < baseline - 500);
-          if (touched) {
-            ESP_LOGI("touch", "Button 3 TOUCHED - Value: %.0f, Baseline: %.0f, Delta: %.0f",
-                     x, baseline, baseline - x);
-          }
-          return touched;
-      - delayed_on: 50ms
+      - delayed_on: 50ms  # Increased debounce
       - delayed_off: 100ms
 
-  # Touch button 4 with dynamic baseline
+  # Touch button 4
   - platform: esp32_touch
     name: "Button 4"
     icon: mdi:numeric-4-circle
@@ -205,7 +100,7 @@ binary_sensor:
       then:
         - rtttl.play: "btn4:d=8,o=5,b=200:g"
         - lambda: |-
-            ESP_LOGI("touch", "Button 4 pressed!");
+            ESP_LOGI("touch", "Button 4 pressed - Raw: %.0f", id(touch_value_4).state);
 
     filters:
       - lambda: |-
