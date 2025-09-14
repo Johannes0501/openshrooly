@@ -75,6 +75,10 @@ then:
 
         # ===== OFF PERIOD =====
         - lambda: |-
+            // Record timestamp when fan stopped
+            auto t = id(sntp_time).now();
+            id(fan_stopped_timestamp) = t.is_valid() ? t.timestamp : 0;
+
             // Schedule RPM stop check 10 seconds after turn off
             id(fan_stop_check).execute();
 

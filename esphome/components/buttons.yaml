@@ -51,6 +51,7 @@ binary_sensor:
     name: "Button 1"
     icon: mdi:numeric-1-circle
     id: button_1
+    internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_extras
 
@@ -59,6 +60,7 @@ binary_sensor:
     name: "Button 2"
     icon: mdi:numeric-2-circle
     id: button_2
+    internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_extras
 
@@ -67,6 +69,7 @@ binary_sensor:
     name: "Button 3"
     icon: mdi:numeric-3-circle
     id: button_3
+    internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_extras
 
@@ -75,5 +78,6 @@ binary_sensor:
     name: "Button 4"
     icon: mdi:numeric-4-circle
     id: button_4
+    internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_extras

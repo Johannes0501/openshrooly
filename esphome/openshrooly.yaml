@@ -20,7 +20,11 @@ esphome:
           // Force the on_value handler to run with current value
           id(timezone_select).publish_state(id(timezone_select).state);
 
-      # Air exchange manager can run right away
+      # Cancel any pending fan checks from previous boots
+      - script.stop: fan_rpm_check
+      - script.stop: fan_stop_check
+
+      # Wait 30 seconds for humidity sensor to stabilize before starting air exchange
       - script.execute: air_exchange_manager
 
       # Start touch button monitoring
@@ -53,32 +57,6 @@ esphome:
             lambda: 'return !isnan(id(humidity).state);'
           timeout: 30s
 
-      # Force resync humidifier state after boot
-      - lambda: |-
-          ESP_LOGI("boot", "Resyncing humidifier state after boot");
-          if (id(humidifier_on_flag)) {
-            ESP_LOGI("boot", "Humidifier should be ON - sending I2C command");
-            uint8_t data[2] = {0x00, 0x01};
-            bool err = id(bus_a).write(0x6C, data, 2);
-            if (err) {
-              ESP_LOGW("boot", "Failed to turn on humidifier via I2C");
-            } else {
-              ESP_LOGI("boot", "Successfully sent humidifier ON command");
-            }
-            // Also trigger the component to ensure it's in sync
-            id(humidifier_fan).turn_on();
-          } else {
-            ESP_LOGI("boot", "Humidifier should be OFF - sending I2C command");
-            uint8_t data[2] = {0x00, 0x00};
-            bool err = id(bus_a).write(0x6C, data, 2);
-            if (err) {
-              ESP_LOGW("boot", "Failed to turn off humidifier via I2C");
-            } else {
-              ESP_LOGI("boot", "Successfully sent humidifier OFF command");
-            }
-            // Also trigger the component to ensure it's in sync
-            id(humidifier_fan).turn_off();
-          }
 
       # Now run the humidity control manager
       - script.execute: humidity_control_manager

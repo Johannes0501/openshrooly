@@ -8,9 +8,11 @@ mode: restart
 then:
   - delay: 10s
   - lambda: |-
+      // Only check if fan is actually supposed to be on
       if (id(air_exchange_on_flag)) {
         float current_rpm = id(fan_tach_internal).state;
-        if (current_rpm < 100.0f) {
+        // Also check that the fan output is actually on (not just the flag)
+        if (id(air_exchange_fan).state && current_rpm < 100.0f) {
           ESP_LOGW("fan_monitor", "⚠️  Air exchange fan ON for 10s but only %0.0f RPM (expected >100 RPM)", current_rpm);
         }
       }

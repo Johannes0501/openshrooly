@@ -5,11 +5,19 @@
 # ========================================================================
 
 button:
-  # Simple dry calibration button
+  # =======================================================================
+  # Water Calibration Buttons
+  # These are marked as internal: true to prevent them from syncing to
+  # Home Assistant. They are only used for local calibration of the water
+  # level sensors and should not be exposed to Home Assistant automation.
+  # =======================================================================
+
+  # Simple dry calibration button - calibrates sensors when tank is empty
   - platform: template
     name: "Calibrate Dry Tank"
     icon: mdi:water-sync
     id: water_calibration_button
+    internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_calibration
       sorting_weight: 10
@@ -59,11 +67,12 @@ button:
             delete device;
           }
 
-  # Cancel calibration button
+  # Cancel calibration button - cancels ongoing calibration process
   - platform: template
     name: "Cancel Calibration"
     icon: mdi:cancel
     id: cancel_calibration_button
+    internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_calibration
       sorting_weight: 20
@@ -74,10 +83,11 @@ button:
             id(calibration_step) = 0;
           }
 
-  # Reset calibration to defaults
+  # Reset calibration to defaults - returns to auto-calibration mode
   - platform: template
     name: "Reset Water Calibration"
     icon: mdi:restore
+    internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_calibration
       sorting_weight: 30
