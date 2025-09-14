@@ -109,6 +109,15 @@ sensor:
 
 
       return voltage;
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return x < 10.0;'
+            then:
+              - lambda: |-
+                  ESP_LOGW("power", "Low voltage detected: %.2fV - Displaying power off message", x);
+              - component.update: my_display
 
 
   - platform: template
@@ -154,13 +163,34 @@ sensor:
         }
       }
 
+      // Scale adjustment: old 100% = new 120%
+      // So each level is now 30% instead of 25%
       int percent = 0;  // default if none valid
       if (highest_index >= 0) {
-        percent = (highest_index + 1) * 25;  // 25, 50, 75, 100
+        percent = (highest_index + 1) * 30;  // 30, 60, 90, 120
       }
 
       delete device;
       return percent;
+    on_value:
+      then:
+        - lambda: |-
+            static int last_warning_hour = -1;
+            auto t = id(sntp_time).now();
+            if (!t.is_valid()) return;
+
+            int current_hour = t.hour;
+
+            // Only warn once per hour (reset when hour changes)
+            if (current_hour != last_warning_hour) {
+              if (x > 100.0f) {
+                ESP_LOGW("water", "⚠️ Water tank OVERFILLED: %.0f%% (should be ≤100%%)", x);
+                last_warning_hour = current_hour;
+              } else if (x <= 0.0f) {
+                ESP_LOGW("water", "⚠️ Water tank EMPTY: %.0f%%", x);
+                last_warning_hour = current_hour;
+              }
+            }
 
   #=======================================================================
   # SECTION 2: Public (Smoothed) Template Sensors for Home Assistant

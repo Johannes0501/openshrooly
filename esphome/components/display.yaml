@@ -28,10 +28,34 @@ display:
     update_interval: 60s        # Partial refresh every minute
     auto_clear_enabled: false
     lambda: |-
-      // Set up previous WiFi state variables to track state across refreshes
+      // Set up state variables to track across refreshes
       static bool has_drawn_background = false;
+      static bool was_low_voltage = false;
       static String previous_ssid = "";
       static String previous_ip = "";
+
+      // Check for low voltage condition first
+      if (id(vbus_voltage).state < 10.0) {
+        // Clear the entire display
+        it.fill(COLOR_OFF);
+
+        // Draw power off message in center of screen
+        it.printf(it.get_width() / 2, it.get_height() / 2 - 10, id(font1),
+                  TextAlign::CENTER, "POWER OFF");
+        it.printf(it.get_width() / 2, it.get_height() / 2 + 10, id(font1),
+                  TextAlign::CENTER, "Low Voltage: %.1fV", id(vbus_voltage).state);
+
+        was_low_voltage = true;
+        has_drawn_background = false;  // Force redraw when power returns
+        return;  // Don't draw anything else
+      }
+
+      // If recovering from low voltage, force full redraw
+      if (was_low_voltage) {
+        was_low_voltage = false;
+        has_drawn_background = false;
+        it.fill(COLOR_OFF);  // Clear the power off message
+      }
 
       // Draw static background once
       if (!has_drawn_background) {
