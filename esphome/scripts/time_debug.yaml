@@ -1,0 +1,21 @@
+# ========================================================================
+# TIME DEBUG INTERVAL ITEM
+# Logs local time every minute for debugging
+# Time is already in local timezone thanks to SNTP configuration
+# ========================================================================
+
+interval: 60s
+then:
+  - lambda: |-
+      auto t = id(sntp_time).now();
+      if (t.is_valid()) {
+        float offset_hours = id(tz_offset);
+        ESP_LOGI("time",
+          "Local time: %04d-%02d-%02d %02d:%02d:%02d (UTC%+.1f)",
+          t.year, t.month, t.day_of_month,
+          t.hour, t.minute, t.second,
+          offset_hours
+        );
+      } else {
+        ESP_LOGW("time", "SNTP time not valid yet");
+      }

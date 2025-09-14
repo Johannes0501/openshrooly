@@ -1,0 +1,29 @@
+# ========================================================================
+# COMMUNICATION CONFIGURATION
+# I2C, SPI buses and SWD programmer
+# ========================================================================
+
+# I2C Bus (for sensors and peripherals)
+i2c:
+  sda: GPIO36
+  scl: GPIO35
+  id: bus_a
+  frequency: 100kHz
+
+# SPI Bus (for display)
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO6
+
+# SWD Programmer (for RP2040 coprocessor)
+swd_programmer:
+  id: swd
+  clk_pin: 2
+  dio_pin: 1
+  reset_pin: 41
+  status:
+    name: "SWD Programmer Status"
+    icon: mdi:chip
+    id: swd_programmer_status
+    web_server:
+      sorting_group_id: grp_hidden

@@ -1,0 +1,92 @@
+# ========================================================================
+# OUTPUTS CONFIGURATION
+# LEDs, fans, buzzer, and all output devices
+# ========================================================================
+
+# PWM Output Channels
+output:
+  - platform: ledc
+    pin: GPIO39
+    id: white_led_pwm
+    inverted: true
+
+  - platform: ledc
+    pin: GPIO37
+    id: fan_pwm
+    inverted: true
+
+  - platform: ledc
+    pin: GPIO47
+    id: rtttl_out
+
+# Buzzer for audio feedback
+rtttl:
+  output: rtttl_out
+  id: buzzer
+
+# Lighting Systems
+light:
+  # White LED strip/panel
+  - platform: monochromatic
+    output: white_led_pwm
+    id: white_led
+    web_server:
+      sorting_group_id: grp_hidden
+
+  # RGB LED strip (16 addressable LEDs)
+  - platform: esp32_rmt_led_strip
+    id: rgb_led_strip
+    pin: GPIO42
+    num_leds: 16
+    #rmt_channel: 0
+    chipset: ws2812
+    rgb_order: RGB
+    web_server:
+      sorting_group_id: grp_hidden
+
+# Control Switches
+switch:
+  # Humidifier fan control via I2C
+  - platform: template
+    id: humidifier_fan
+    name: "Humidifier Fan"
+    optimistic: true
+    turn_on_action:
+      - lambda: |-
+          uint8_t data[2] = {0x00, 0x01};
+          bool err = id(bus_a).write(0x6C, data, 2);  // true = error
+          if (err) {
+            ESP_LOGE("humidifier", "TURN ON: write to 0x6C failed (NACK)");
+          } else {
+            ESP_LOGI("humidifier", "TURN ON: sent OK");
+          }
+    turn_off_action:
+      - lambda: |-
+          uint8_t data[2] = {0x00, 0x00};
+          bool err = id(bus_a).write(0x6C, data, 2);  // true = error
+          if (err) {
+            ESP_LOGE("humidifier", "TURN OFF: write to 0x6C failed (NACK)");
+          } else {
+            ESP_LOGI("humidifier", "TURN OFF: sent OK");
+          }
+    web_server:
+      sorting_group_id: grp_hidden
+
+  # Factory reset switch (internal use only)
+  - platform: factory_reset
+    id: do_factory_reset
+    internal: true
+    name: "Restart with Factory Default Settings"
+    web_server:
+      sorting_group_id: grp_hidden
+
+# Fan Control
+fan:
+  # Air exchange fan with variable speed
+  - platform: speed
+    output: fan_pwm
+    id: air_exchange_fan
+    internal: true
+    speed_count: 100
+    web_server:
+      sorting_group_id: grp_hidden

@@ -24,3 +24,8 @@ globals:
     type: bool
     restore_value: yes
     initial_value: 'false'
+
+  - id: humidifier_start_humidity
+    type: float
+    restore_value: no
+    initial_value: '0'

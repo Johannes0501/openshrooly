@@ -1,0 +1,206 @@
+# ========================================================================
+# SENSORS CONFIGURATION
+# All sensor components for environmental monitoring
+# ========================================================================
+
+sensor:
+  #=======================================================================
+  # SECTION 1: Internal High-Frequency Sensors
+  # These publish their raw values every second to the public template sensors.
+  #=======================================================================
+
+  - platform: sht4x
+    i2c_id: bus_a
+    temperature:
+      id: temperature
+      name: "Current Temperature"
+      icon: mdi:thermometer
+      internal: true
+      web_server:
+        sorting_group_id: grp_env
+
+      on_value:
+        # Every second, publish the raw value to the public template sensor.
+        - sensor.template.publish:
+            id: temp_ha
+            state: !lambda 'return x;'
+    humidity:
+      id: humidity
+      name: "Current Humidity"
+      icon: mdi:water-percent
+      internal: true
+      web_server:
+        sorting_group_id: grp_env
+
+      on_value:
+        # First, run the local script with every new value.
+        - script.execute: humidity_control_manager
+        # Then, publish the raw value to the public template sensor.
+        - sensor.template.publish:
+            id: humidity_ha
+            state: !lambda 'return x;'
+
+    # Heater configuration to prevent condensation in high humidity environments
+    heater_max_duty: 0.02    # 2% duty cycle - conservative setting for mushroom growing
+    heater_power: Med        # Medium power to avoid excessive heat
+    heater_time: Short       # 100ms heating time to minimize measurement disruption
+
+    update_interval: 2s      # Increased from 1s to account for heater operation
+
+  - platform: pulse_counter
+    pin:
+      number: GPIO14
+      mode:
+        input: true
+        pullup: true
+    id: fan_tach_internal
+    name: "Current Air Exchange Fan Speed"
+    icon: mdi:fan
+    internal: true
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    web_server:
+      sorting_group_id: grp_env
+    filters:
+      - multiply: 0.5
+    update_interval: 1s
+    count_mode:
+      rising_edge: INCREMENT
+      falling_edge: DISABLE
+    use_pcnt: false  # Use the newer pulse counter implementation
+    on_value:
+      # Every second, publish the raw value to the public template sensor.
+      - sensor.template.publish:
+          id: fan_tach_ha
+          state: !lambda 'return x;'
+
+  - platform: adc
+    pin: GPIO4  # ADC_CHANNEL_3 for hardware v0.04
+    name: "VBUS ADC Raw"
+    icon: mdi:sine-wave
+    id: vbus_adc_raw
+    attenuation: auto
+    internal: true
+    web_server:
+      sorting_group_id: grp_hidden
+    update_interval: 1s
+    accuracy_decimals: 3
+
+  # Converted VBUS voltage using hardware v0.04 regression formula
+  - platform: template
+    name: "VBUS Voltage"
+    icon: mdi:lightning-bolt
+    id: vbus_voltage
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    update_interval: 1s
+    internal: true
+    web_server:
+      sorting_group_id: grp_env
+    lambda: |-
+      float v = id(vbus_adc_raw).state;
+
+
+      // ChatGPT estimate
+      float voltage =
+          8.70370f * v          // linear term = divider ratio at low V
+        - 0.23626f * v * v
+        + 0.17501f * v * v * v;
+
+
+      return voltage;
+
+
+  - platform: template
+    name: "Water Level Percent"
+    icon: mdi:cup-water
+    id: water_level_percent
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: 10s
+    web_server:
+      sorting_group_id: grp_env
+      sorting_weight: 30
+    lambda: |-
+      // N/A until first successful run or on read failure
+      auto device = new i2c::I2CDevice();
+      device->set_i2c_bus(id(bus_a));
+      device->set_i2c_address(0x6C);
+
+      uint8_t regs[] = {0x03, 0x07, 0x0B, 0x0F};  // Empty, Low, Mid, High
+      uint32_t levels[4] = {0};
+      uint8_t data[4];
+
+      // Read all 4 registers; any failure -> N/A
+      for (int i = 0; i < 4; i++) {
+        if (device->read_register(regs[i], data, 4)) { // note true and false seem to be flipped!
+          ESP_LOGW("i2c", "Read failed at 0x%02X", regs[i]);
+          delete device;
+          return NAN;   // Home Assistant shows N/A
+        }
+        levels[i] = (uint32_t)data[0]
+                  | ((uint32_t)data[1] << 8)
+                  | ((uint32_t)data[2] << 16)
+                  | ((uint32_t)data[3] << 24);
+      }
+
+      // Pick highest valid (< 20000)
+      uint32_t highest_valid = 0;
+      int highest_index = -1;
+      for (int i = 0; i < 4; i++) {
+        if (levels[i] < 20000 && levels[i] > highest_valid) {
+          highest_valid = levels[i];
+          highest_index = i;
+        }
+      }
+
+      int percent = 0;  // default if none valid
+      if (highest_index >= 0) {
+        percent = (highest_index + 1) * 25;  // 25, 50, 75, 100
+      }
+
+      delete device;
+      return percent;
+
+  #=======================================================================
+  # SECTION 2: Public (Smoothed) Template Sensors for Home Assistant
+  # These receive updates every second, but use FILTERS to decide when
+  # to forward a new state to Home Assistant.
+  #=======================================================================
+
+  - platform: template
+    name: "Temperature"
+    icon: mdi:thermometer
+    id: temp_ha
+    entity_category: "diagnostic"
+    accuracy_decimals: 1
+    unit_of_measurement: "°C"
+    web_server:
+      sorting_group_id: grp_hidden
+    filters:
+      - throttle: 30s
+
+  - platform: template
+    name: "Humidity"
+    icon: mdi:water-percent
+    id: humidity_ha
+    entity_category: "diagnostic"
+    accuracy_decimals: 1
+    unit_of_measurement: "%"
+    web_server:
+      sorting_group_id: grp_hidden
+    filters:
+      - throttle: 30s
+
+  - platform: template
+    name: "Air Exchange Fan Speed"
+    icon: mdi:fan
+    id: fan_tach_ha
+    entity_category: "diagnostic"
+    unit_of_measurement: "RPM"
+    accuracy_decimals: 0
+    web_server:
+      sorting_group_id: grp_hidden
+      sorting_weight: 40
+    filters:
+      - delta: 25.0

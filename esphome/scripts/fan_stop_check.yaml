@@ -1,0 +1,16 @@
+# ========================================================================
+# FAN STOP ONE-TIME CHECK SCRIPT
+# Checks fan has stopped exactly 10 seconds after being called
+# ========================================================================
+
+id: fan_stop_check
+mode: restart
+then:
+  - delay: 10s
+  - lambda: |-
+      if (!id(air_exchange_on_flag)) {
+        float current_rpm = id(fan_tach_internal).state;
+        if (current_rpm > 0.0f) {
+          ESP_LOGW("fan_monitor", "⚠️  Air exchange fan OFF for 10s but still spinning at %0.0f RPM", current_rpm);
+        }
+      }

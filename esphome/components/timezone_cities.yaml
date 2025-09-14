@@ -1,0 +1,55 @@
+# ========================================================================
+# CITY-BASED TIMEZONE SELECTION
+# Users select their city, which sets the appropriate offset
+# Note: This doesn't handle DST automatically
+# ========================================================================
+
+select:
+  - platform: template
+    id: timezone_city
+    name: "Timezone (Select City)"
+    options:
+      - "UTC (London Winter)"
+      - "EST (New York)"
+      - "CST (Chicago)"
+      - "MST (Denver)"
+      - "PST (Los Angeles)"
+      - "CET (Paris/Berlin)"
+      - "JST (Tokyo)"
+      - "AEST (Sydney)"
+      - "IST (Mumbai)"
+      - "CST (Beijing)"
+    initial_option: "UTC (London Winter)"
+    optimistic: true
+    restore_value: true
+    entity_category: config
+    icon: mdi:city
+    web_server:
+      sorting_group_id: grp_lights
+      sorting_weight: 2
+    on_value:
+      then:
+        - lambda: |-
+            // Map cities to offsets (standard time, not DST)
+            std::map<std::string, float> offsets = {
+              {"UTC (London Winter)", 0},
+              {"EST (New York)", -5},
+              {"CST (Chicago)", -6},
+              {"MST (Denver)", -7},
+              {"PST (Los Angeles)", -8},
+              {"CET (Paris/Berlin)", 1},
+              {"JST (Tokyo)", 9},
+              {"AEST (Sydney)", 10},
+              {"IST (Mumbai)", 5.5},
+              {"CST (Beijing)", 8}
+            };
+
+            float offset = offsets[x];
+            id(timezone_offset_internal) = offset;
+            ESP_LOGI("timezone", "Selected %s, offset: %.1f hours", x.c_str(), offset);
+
+globals:
+  - id: timezone_offset_internal
+    type: float
+    restore_value: yes
+    initial_value: '0'

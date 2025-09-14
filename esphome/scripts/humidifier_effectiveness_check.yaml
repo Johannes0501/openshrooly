@@ -1,0 +1,31 @@
+# ========================================================================
+# HUMIDIFIER EFFECTIVENESS ONE-TIME CHECK SCRIPT
+# Checks humidity increase exactly 300 seconds (5 minutes) after being called
+# ========================================================================
+
+id: humidifier_effectiveness_check
+mode: restart
+then:
+  - lambda: |-
+      // Save current humidity as start value before delay
+      id(humidifier_start_humidity) = id(humidity).state;
+  - delay: 300s
+  - lambda: |-
+      if (id(humidifier_on_flag)) {
+        float current_humidity = id(humidity).state;
+        float start_humidity = id(humidifier_start_humidity);
+        float humidity_increase = current_humidity - start_humidity;
+
+        // Warning if humidity hasn't risen at all or has decreased
+        if (humidity_increase <= 0.0f) {
+          ESP_LOGW("humidifier_monitor",
+                   "⚠️  Humidifier ON for 5 minutes but humidity unchanged: %.1f%% → %.1f%% (change: %+.1f%%)",
+                   start_humidity, current_humidity, humidity_increase);
+        }
+        // Info log for small increases that might indicate slow operation
+        else if (humidity_increase < 2.0f) {
+          ESP_LOGI("humidifier_monitor",
+                   "ℹ️  Humidifier working slowly: %.1f%% → %.1f%% over 5 minutes (+%.1f%%)",
+                   start_humidity, current_humidity, humidity_increase);
+        }
+      }

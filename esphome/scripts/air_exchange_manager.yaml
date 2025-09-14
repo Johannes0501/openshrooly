@@ -13,6 +13,9 @@ then:
             id(air_exchange_on_flag) = true;
             id(air_exchange_next_off_ts) = t.is_valid() ? (t.timestamp + run_sec) : 0;
 
+            // Schedule RPM check 10 seconds after turn on
+            id(fan_rpm_check).execute();
+
             String time_str;
             if (run_sec >= 3600) {
               int hours = run_sec / 3600;
@@ -71,6 +74,10 @@ then:
         - fan.turn_off: air_exchange_fan
 
         # ===== OFF PERIOD =====
+        - lambda: |-
+            // Schedule RPM stop check 10 seconds after turn off
+            id(fan_stop_check).execute();
+
         - lambda: |-
             // Compute rest as (period - run). Clamp to >= 0.
             const int period_ms = (int)(id(air_exchange_period_min).state * 60000.0f);

@@ -1,0 +1,20 @@
+# ========================================================================
+# HARDWARE CONFIGURATION - MAIN FILE
+# This file now includes all hardware component configurations
+# Split into logical sections for better organization
+# ========================================================================
+
+# Communication buses (I2C, SPI, SWD)
+<<: !include communication.yaml
+
+# Output devices (LEDs, fans, buzzer, switches)
+<<: !include outputs.yaml
+
+# All sensors (environmental, voltage, water level)
+<<: !include sensors.yaml
+
+# Display configuration (e-paper)
+<<: !include display.yaml
+
+# Button inputs (physical and touch)
+<<: !include buttons.yaml

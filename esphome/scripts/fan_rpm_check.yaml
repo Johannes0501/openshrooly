@@ -1,0 +1,16 @@
+# ========================================================================
+# FAN RPM ONE-TIME CHECK SCRIPT
+# Checks fan RPM exactly 10 seconds after being called
+# ========================================================================
+
+id: fan_rpm_check
+mode: restart
+then:
+  - delay: 10s
+  - lambda: |-
+      if (id(air_exchange_on_flag)) {
+        float current_rpm = id(fan_tach_internal).state;
+        if (current_rpm < 100.0f) {
+          ESP_LOGW("fan_monitor", "⚠️  Air exchange fan ON for 10s but only %0.0f RPM (expected >100 RPM)", current_rpm);
+        }
+      }

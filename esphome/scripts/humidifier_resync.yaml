@@ -1,0 +1,29 @@
+# ========================================================================
+# HUMIDIFIER RESYNC INTERVAL ITEM
+# Periodically rewrites the humidifier I2C register to ensure it's in sync
+# This handles cases where the humidifier might have missed a command
+# ========================================================================
+
+interval: 60s  # Every minute, update the humidifier I2C register just in case it didn't register
+then:
+  - lambda: |-
+      uint8_t data[2];
+      if (id(humidifier_fan).state) {
+        // Humidifier should be ON - send ON command
+        data[0] = 0x00; data[1] = 0x01;
+        bool err = id(bus_a).write(0x6C, data, 2);
+        if (err) {
+          ESP_LOGW("humidifier_resync", "Failed to resync humidifier ON state");
+        } else {
+          ESP_LOGV("humidifier_resync", "Resynced humidifier ON state");
+        }
+      } else {
+        // Humidifier should be OFF - send OFF command
+        data[0] = 0x00; data[1] = 0x00;
+        bool err = id(bus_a).write(0x6C, data, 2);
+        if (err) {
+          ESP_LOGW("humidifier_resync", "Failed to resync humidifier OFF state");
+        } else {
+          ESP_LOGV("humidifier_resync", "Resynced humidifier OFF state");
+        }
+      }
