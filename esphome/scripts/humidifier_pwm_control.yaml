@@ -1,0 +1,76 @@
+# ========================================================================
+# HUMIDIFIER PWM CONTROL SCRIPT
+# Implements 8Hz PWM control for the humidifier fan using I2C commands
+# Duty cycle is based on the humidifier_speed setting (50-100%)
+# ========================================================================
+
+id: humidifier_pwm_control
+mode: restart
+then:
+  - while:
+      condition:
+        lambda: 'return id(humidifier_on_flag);'
+      then:
+        - lambda: |-
+            // Get the speed setting (50-100%)
+            float speed_percent = id(humidifier_speed).state;
+
+            // Calculate on/off times for 8Hz (125ms period)
+            int on_time_ms = (int)(125.0f * speed_percent / 100.0f);
+            int off_time_ms = 125 - on_time_ms;
+
+            // Turn on the humidifier fan via I2C
+            auto device = new i2c::I2CDevice();
+            device->set_i2c_bus(id(bus_a));
+            device->set_i2c_address(0x6C);  // Humidifier fan I2C address
+
+            uint8_t data[2];
+            data[0] = 0x00;  // Register
+            data[1] = 0x01;  // Turn on
+            device->write(data, 2);
+            delete device;
+
+            // Keep on for the calculated duration
+            id(humidifier_pwm_on_time) = on_time_ms;
+
+        - delay: !lambda 'return id(humidifier_pwm_on_time);'
+
+        - lambda: |-
+            // Only turn off if we're doing PWM (not 100% duty)
+            float speed_percent = id(humidifier_speed).state;
+            if (speed_percent < 100.0f && id(humidifier_on_flag)) {
+              // Turn off the humidifier fan via I2C
+              auto device = new i2c::I2CDevice();
+              device->set_i2c_bus(id(bus_a));
+              device->set_i2c_address(0x6C);  // Humidifier fan I2C address
+
+              uint8_t data[2];
+              data[0] = 0x00;  // Register
+              data[1] = 0x00;  // Turn off
+              device->write(data, 2);
+              delete device;
+
+              // Calculate off time
+              int off_time_ms = 125 - (int)(125.0f * speed_percent / 100.0f);
+              id(humidifier_pwm_off_time) = off_time_ms;
+            } else {
+              // If 100%, no off time
+              id(humidifier_pwm_off_time) = 0;
+            }
+
+        - delay: !lambda 'return id(humidifier_pwm_off_time);'
+
+  # When loop exits (humidifier_on_flag = false), ensure fan is OFF
+  - lambda: |-
+      // Always turn off when stopping
+      auto device = new i2c::I2CDevice();
+      device->set_i2c_bus(id(bus_a));
+      device->set_i2c_address(0x6C);  // Humidifier fan I2C address
+
+      uint8_t data[2];
+      data[0] = 0x00;  // Register
+      data[1] = 0x00;  // Turn off
+      device->write(data, 2);
+      delete device;
+
+      ESP_LOGD("humidifier_pwm", "Humidifier PWM stopped - fan turned OFF");

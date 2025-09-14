@@ -111,6 +111,7 @@ script:
 
   # This runs any time the humidity changes (usually once a second)
   - !include scripts/humidity_control_manager.yaml
+  - !include scripts/humidifier_pwm_control.yaml
 
   # This runs when the light values change or every 30 seconds
   - !include scripts/lighting_control_manager.yaml
@@ -146,17 +147,6 @@ interval:
             ESP_LOGW("time", "SNTP time not valid yet");
           }
 
-  - interval: 60s  # Every minute, update the humidifier I2C register just in case it didn't register
-    then:
-      - lambda: |-
-          uint8_t data[2];
-          if (id(humidifier_fan).state) {
-            data[0] = 0x00; data[1] = 0x01;
-            bool err = id(bus_a).write(0x6C, data, 2);
-          } else {
-            data[0] = 0x00; data[1] = 0x00;
-            bool err = id(bus_a).write(0x6C, data, 2);
-          }
 
   - interval: 30s # Every 30 seconds, run the water level calculator
     then:

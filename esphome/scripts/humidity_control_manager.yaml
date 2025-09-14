@@ -18,7 +18,18 @@ then:
           if (id(humidifier_on_flag)) {
             // Turn off if it was on
             id(humidifier_on_flag) = false;
-            id(humidifier_fan).turn_off();
+            id(humidifier_pwm_control).stop();  // Stop PWM control script
+
+            // Explicitly turn off the fan via I2C to ensure it's OFF
+            auto device = new i2c::I2CDevice();
+            device->set_i2c_bus(id(bus_a));
+            device->set_i2c_address(0x6C);
+            uint8_t data[2];
+            data[0] = 0x00;  // Register
+            data[1] = 0x00;  // Turn off
+            device->write(data, 2);
+            delete device;
+
             ESP_LOGW("humidity", "Turning off humidifier - waiting for humidity sensor to initialize");
           }
           // Show waiting status
@@ -26,18 +37,32 @@ then:
           return;
         }
 
-        if (!id(humidifier_on_flag) && h < t - 3.0f) {
-          // Turn ON at target - 3%
+        if (!id(humidifier_on_flag) && h < t - 2.0f) {
+          // Turn ON at target - 2%
           id(humidifier_on_flag) = true;
-          id(humidifier_fan).turn_on();
+
+          // Start the PWM control script
+          id(humidifier_pwm_control).execute();
 
           // Schedule effectiveness check (it will save its own start humidity)
           id(humidifier_effectiveness_check).execute();
 
-        } else if (id(humidifier_on_flag) && h > t - 1.0f) {
-          // Turn OFF at target - 1% (hysteresis range: -3% to -1%)
+        } else if (id(humidifier_on_flag) && h > t) {
+          // Turn OFF at target (hysteresis range: -2% to 0%)
           id(humidifier_on_flag) = false;
-          id(humidifier_fan).turn_off();
+
+          // Stop the PWM script immediately
+          id(humidifier_pwm_control).stop();
+
+          // Explicitly turn off the fan via I2C to ensure it's OFF
+          auto device = new i2c::I2CDevice();
+          device->set_i2c_bus(id(bus_a));
+          device->set_i2c_address(0x6C);
+          uint8_t data[2];
+          data[0] = 0x00;  // Register
+          data[1] = 0x00;  // Turn off
+          device->write(data, 2);
+          delete device;
         }
 
         // Always publish status showing actual humidity, but indicate when suppressed

@@ -20,6 +20,25 @@ number:
     set_action:
       - script.execute: humidity_control_manager
 
+  - platform: template
+    id: humidifier_speed
+    name: "Humidifier: Speed"
+    unit_of_measurement: "%"
+    icon: mdi:fan
+    min_value: 50  # Minimum 50% for effective misting
+    max_value: 100
+    step: 5
+    mode: slider
+    optimistic: true
+    restore_value: true
+    initial_value: 75
+    web_server:
+      sorting_group_id: grp_humidity
+      sorting_weight: 20
+
+    set_action:
+      - script.execute: humidity_control_manager
+
 
   - platform: template
     id: air_exchange_period_min

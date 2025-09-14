@@ -74,3 +74,14 @@ globals:
     type: float
     restore_value: no
     initial_value: '0'
+
+  # Variables for humidifier PWM control
+  - id: humidifier_pwm_on_time
+    type: int
+    restore_value: no
+    initial_value: '750'
+
+  - id: humidifier_pwm_off_time
+    type: int
+    restore_value: no
+    initial_value: '250'

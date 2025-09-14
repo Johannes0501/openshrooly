@@ -263,10 +263,10 @@ then:
         int Gi = (int) id(color_g).state;
         int Bi = (int) id(color_b).state;
 
-        // Use the helper function (no transition for real-time updates)
-        apply_rgb_settings();
-
+        // Only update RGB if values have changed
         if (Ri != last_r || Gi != last_g || Bi != last_b) {
+          // Use the helper function (no transition for real-time updates)
+          apply_rgb_settings();
           ESP_LOGI("shrooly", "RGB -> (%d,%d,%d)", Ri, Gi, Bi);
           last_r = Ri; last_g = Gi; last_b = Bi;
         }
