@@ -4,6 +4,9 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"       // for gpio_* functions
 
+// Heavily inspired by https://github.com/intechstudio/grid-fw/blob/master/grid_esp/components/grid_esp32_swd/grid_esp32_swd.c
+// and traces from a Saleae logic analyzer of a known-working SWD session.
+
 // -------------------- Timing --------------------
 // Clock period for SWD bitbanging (in microseconds).
 // RP2040 SWD can usually tolerate this speed; tune if needed.
@@ -285,124 +288,14 @@ static void swd_configure_trace(uint8_t core){
   ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
 }
 
-// -------------------- Public high-level sequences --------------------
 
-void perform_full_reset_sequence(const swd_pins_t *pins){
-  (void)pins; // g_pins already set
-  for(uint8_t c=0;c<2;c++) swd_reset_basic(c);
-  for(uint8_t c=0;c<2;c++) swd_configure_tar(c);
-  for(uint8_t c=0;c<2;c++) swd_reset_additional(c);
-  for(uint8_t c=0;c<2;c++) swd_configure_trace(c);
-}
-
-void halt_cores(const swd_pins_t *pins){
-  (void)pins;
-  for(uint8_t core=0; core<2; core++){
-    swd_line_reset(); swd_idle(); swd_target_select(core); swd_clock_cycle();
-    dp_read_idcode(); swd_clock_cycle();
-    dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-    dp_read_ctrlstat(); swd_clock_cycle();
-    ap_read_tar(); swd_clock_cycle();
-    dp_read_rdbuff(); swd_clock_cycle();
-  }
-  // extended halt for core 0
-  swd_line_reset(); swd_idle(); swd_target_select(0); swd_clock_cycle();
-  dp_read_idcode(); swd_clock_cycle();
-  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-  dp_read_ctrlstat(); swd_clock_cycle();
-
-  ap_write_tar(0xA05F0003); swd_clock_cycle();  // halt request
-  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
-  ap_write_tar(0xA05F0003); swd_clock_cycle();
-
-  dp_write_select(DP_SELECT_BANK3); swd_clock_cycle();
-  ap_write_bd0(ADDR_DFSR); swd_clock_cycle();
-  dp_write_select(DP_SELECT_BANK13); swd_clock_cycle();
-  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
-
-  ap_write_tar(0x00000001); swd_clock_cycle();         // debug enable
-  dp_write_select(DP_SELECT_BANK3); swd_clock_cycle();
-  ap_write_bd0(ADDR_DHCSR); swd_clock_cycle();
-  dp_write_select(DP_SELECT_BANK13); swd_clock_cycle();
-  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
-
-  // check core 1
-  swd_line_reset(); swd_idle(); swd_target_select(1); swd_clock_cycle();
-  dp_read_idcode(); swd_clock_cycle();
-  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-  dp_read_dlcr(); swd_clock_cycle();
-  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
-}
-
-void swd_resume_execution(const swd_pins_t *pins){
-  (void)pins;
-  for(uint8_t core=0; core<2; core++){
-    swd_line_reset(); swd_idle(); swd_target_select(core); swd_clock_cycle();
-    dp_read_idcode(); swd_clock_cycle();
-    dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-    dp_read_ctrlstat(); swd_clock_cycle();
-    ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
-  }
-  // core 0 entry point
-  swd_line_reset(); swd_idle(); swd_target_select(0); swd_clock_cycle();
-  dp_read_idcode(); swd_clock_cycle();
-  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-  dp_read_ctrlstat(); swd_clock_cycle();
-  ap_write_drw(TAR_SRAM_BASE); swd_clock_cycle();
-  ap_write_bd0(0x0001000F);    swd_clock_cycle();
-
-  for(uint8_t core=0; core<=2; core++){
-    swd_line_reset(); swd_idle();
-    swd_target_select(core==2 ? 0 : core); swd_clock_cycle();
-    dp_read_idcode(); swd_clock_cycle();
-    dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-    dp_read_ctrlstat(); swd_clock_cycle();
-    ap_write_tar(DHCSR_RESUME); swd_clock_cycle();
-  }
-}
-
-void swd_program_sram(const swd_pins_t *pins, const uint8_t *buffer, uint32_t length){
-  (void)pins;
-  for(uint8_t core=0; core<2; core++){
-    swd_line_reset(); swd_idle(); swd_target_select(core); swd_clock_cycle();
-    dp_read_idcode(); swd_clock_cycle();
-    dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-    dp_read_ctrlstat(); swd_clock_cycle();
-    ap_read_tar(); swd_clock_cycle();
-    dp_read_rdbuff(); swd_clock_cycle();
-  }
-  swd_line_reset(); swd_idle(); swd_target_select(0); swd_clock_cycle();
-  dp_read_idcode(); swd_clock_cycle();
-  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-  dp_read_ctrlstat(); swd_clock_cycle();
-  dp_write_select(DP_SELECT_BANK3); swd_clock_cycle();
-  ap_write_bd0(TAR_SRAM_BASE); swd_clock_cycle();
-
-  dp_write_select(DP_SELECT_BANK3); swd_clock_cycle();
-  for(uint32_t i=0; i<length; i+=4){
-    if((i % SRAM_PAGE_SIZE)==0){ ap_write_bd0(TAR_SRAM_BASE + i); swd_clock_cycle(); }
-    uint32_t word = 0;
-    // handle length not multiple of 4
-    for(int b=0;b<4 && (i+b)<length;b++) word |= ((uint32_t)buffer[i+b]) << (8*b);
-    ap_write_csw(word);
-  }
-
-  ap_write_bd0(ADDR_DHCSR); swd_clock_cycle();
-  dp_write_select(DP_SELECT_BANK13); swd_clock_cycle();
-  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
-
-  swd_line_reset(); swd_idle(); swd_target_select(1); swd_clock_cycle();
-  dp_read_idcode(); swd_clock_cycle();
-  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
-  dp_read_dlcr(); swd_clock_cycle();
-  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
-}
 
 // -------------------- Public entry points --------------------
 
 
 // Fully initialize SWD interface pins and reset the RP2040 target
 void swd_init_connection(const swd_pins_t *pins){
+
   // Save pin configuration globally so helper functions know what to use
   g_pins = *pins;
 
@@ -493,3 +386,121 @@ void swd_init_connection(const swd_pins_t *pins){
   dp_read_ctrlstat();
   swd_clock_cycle();
 }
+
+void perform_full_reset_sequence(const swd_pins_t *pins){
+  (void)pins; // g_pins already set
+  for(uint8_t c=0;c<2;c++) swd_reset_basic(c);
+  for(uint8_t c=0;c<2;c++) swd_configure_tar(c);
+  for(uint8_t c=0;c<2;c++) swd_reset_additional(c);
+  for(uint8_t c=0;c<2;c++) swd_configure_trace(c);
+}
+
+void halt_cores(const swd_pins_t *pins){
+  (void)pins;
+  for(uint8_t core=0; core<2; core++){
+    swd_line_reset(); swd_idle(); swd_target_select(core); swd_clock_cycle();
+    dp_read_idcode(); swd_clock_cycle();
+    dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+    dp_read_ctrlstat(); swd_clock_cycle();
+    ap_read_tar(); swd_clock_cycle();
+    dp_read_rdbuff(); swd_clock_cycle();
+  }
+  // extended halt for core 0
+  swd_line_reset(); swd_idle(); swd_target_select(0); swd_clock_cycle();
+  dp_read_idcode(); swd_clock_cycle();
+  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+  dp_read_ctrlstat(); swd_clock_cycle();
+
+  ap_write_tar(0xA05F0003); swd_clock_cycle();  // halt request
+  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
+  ap_write_tar(0xA05F0003); swd_clock_cycle();
+
+  dp_write_select(DP_SELECT_BANK3); swd_clock_cycle();
+  ap_write_bd0(ADDR_DFSR); swd_clock_cycle();
+  dp_write_select(DP_SELECT_BANK13); swd_clock_cycle();
+  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
+
+  ap_write_tar(0x00000001); swd_clock_cycle();         // debug enable
+  dp_write_select(DP_SELECT_BANK3); swd_clock_cycle();
+  ap_write_bd0(ADDR_DHCSR); swd_clock_cycle();
+  dp_write_select(DP_SELECT_BANK13); swd_clock_cycle();
+  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
+
+  // check core 1
+  swd_line_reset(); swd_idle(); swd_target_select(1); swd_clock_cycle();
+  dp_read_idcode(); swd_clock_cycle();
+  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+  dp_read_dlcr(); swd_clock_cycle();
+  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
+}
+
+
+void swd_program_sram(const swd_pins_t *pins, const uint8_t *buffer, uint32_t length){
+  (void)pins;
+  for(uint8_t core=0; core<2; core++){
+    swd_line_reset(); swd_idle(); swd_target_select(core); swd_clock_cycle();
+    dp_read_idcode(); swd_clock_cycle();
+    dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+    dp_read_ctrlstat(); swd_clock_cycle();
+    ap_read_tar(); swd_clock_cycle();
+    dp_read_rdbuff(); swd_clock_cycle();
+  }
+  swd_line_reset(); swd_idle(); swd_target_select(0); swd_clock_cycle();
+  dp_read_idcode(); swd_clock_cycle();
+  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+  dp_read_ctrlstat(); swd_clock_cycle();
+  dp_write_select(DP_SELECT_BANK3); swd_clock_cycle();
+  ap_write_bd0(TAR_SRAM_BASE); swd_clock_cycle();
+
+  dp_write_select(DP_SELECT_BANK3); swd_clock_cycle();
+  for(uint32_t i=0; i<length; i+=4){
+    if((i % SRAM_PAGE_SIZE)==0){ ap_write_bd0(TAR_SRAM_BASE + i); swd_clock_cycle(); }
+    uint32_t word = 0;
+    // handle length not multiple of 4
+    for(int b=0;b<4 && (i+b)<length;b++) word |= ((uint32_t)buffer[i+b]) << (8*b);
+    ap_write_csw(word);
+  }
+
+  ap_write_bd0(ADDR_DHCSR); swd_clock_cycle();
+  dp_write_select(DP_SELECT_BANK13); swd_clock_cycle();
+  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
+
+  swd_line_reset(); swd_idle(); swd_target_select(1); swd_clock_cycle();
+  dp_read_idcode(); swd_clock_cycle();
+  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+  dp_read_dlcr(); swd_clock_cycle();
+  ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
+}
+
+
+void swd_resume_execution(const swd_pins_t *pins){
+  (void)pins;
+  for(uint8_t core=0; core<2; core++){
+    swd_line_reset(); swd_idle(); swd_target_select(core); swd_clock_cycle();
+    dp_read_idcode(); swd_clock_cycle();
+    dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+    dp_read_ctrlstat(); swd_clock_cycle();
+    ap_read_tar(); swd_clock_cycle(); dp_read_rdbuff(); swd_clock_cycle();
+  }
+  // core 0 entry point
+  swd_line_reset(); swd_idle(); swd_target_select(0); swd_clock_cycle();
+  dp_read_idcode(); swd_clock_cycle();
+  dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+  dp_read_ctrlstat(); swd_clock_cycle();
+  ap_write_drw(TAR_SRAM_BASE); swd_clock_cycle();
+  ap_write_bd0(0x0001000F);    swd_clock_cycle();
+
+  for(uint8_t core=0; core<=2; core++){
+    swd_line_reset(); swd_idle();
+    swd_target_select(core==2 ? 0 : core); swd_clock_cycle();
+    dp_read_idcode(); swd_clock_cycle();
+    dp_write_abort(ABORT_CLEAR_STICKYERR); swd_clock_cycle();
+    dp_read_ctrlstat(); swd_clock_cycle();
+    ap_write_tar(DHCSR_RESUME); swd_clock_cycle();
+  }
+}
+
+
+
+
+
