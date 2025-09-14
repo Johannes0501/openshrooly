@@ -7,6 +7,7 @@ text_sensor:
   - platform: template
     id: air_exchange_status
     name: "Air Exchange Status"
+    internal: true
     icon: mdi:fan-auto
     web_server:
       sorting_group_id: grp_air
@@ -15,6 +16,7 @@ text_sensor:
   - platform: template
     id: lights_status
     name: "Light Status"
+    internal: true
     icon: mdi:lightbulb-on-outline
     web_server:
       sorting_group_id: grp_lights
@@ -23,6 +25,7 @@ text_sensor:
   - platform: template
     id: humidifier_fan_status
     name: "Humidifier Status"
+    internal: true
     icon: mdi:air-humidifier
     web_server:
       sorting_group_id: grp_humidity
@@ -32,6 +35,7 @@ text_sensor:
   - platform: template
     name: "Calibration Status"
     id: calibration_status
+    internal: true
     icon: mdi:information-outline
     update_interval: 1s
     web_server:
