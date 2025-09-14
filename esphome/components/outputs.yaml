@@ -58,7 +58,8 @@ switch:
           if (err) {
             ESP_LOGE("humidifier", "TURN ON: write to 0x6C failed (NACK)");
           } else {
-            ESP_LOGI("humidifier", "TURN ON: sent OK");
+            float current_humidity = id(humidity).state;
+            ESP_LOGI("humidifier", "TURN ON: sent OK (humidity: %.1f%%)", current_humidity);
           }
     turn_off_action:
       - lambda: |-
@@ -67,7 +68,8 @@ switch:
           if (err) {
             ESP_LOGE("humidifier", "TURN OFF: write to 0x6C failed (NACK)");
           } else {
-            ESP_LOGI("humidifier", "TURN OFF: sent OK");
+            float current_humidity = id(humidity).state;
+            ESP_LOGI("humidifier", "TURN OFF: sent OK (humidity: %.1f%%)", current_humidity);
           }
     web_server:
       sorting_group_id: grp_hidden

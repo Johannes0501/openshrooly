@@ -3,7 +3,8 @@
 number:
   - platform: template
     id: target_humidity
-    name: "Target Humidity (%)"
+    name: "Target Humidity"
+    unit_of_measurement: "%"
     icon: mdi:water-percent
     min_value: 30
     max_value: 100
@@ -54,7 +55,8 @@ number:
 
   - platform: template
     id: air_exchange_speed
-    name: "Air Exchange: Speed (%)"
+    name: "Air Exchange: Speed"
+    unit_of_measurement: "%"
     icon: mdi:fan
     min_value: 15  # Minimum 15% to ensure proper airflow
     max_value: 100
@@ -70,7 +72,7 @@ number:
 
   - platform: template
     id: sunrise_hour
-    name: "Lights: Turn ON at Hour (Local Time)"
+    name: "Lights: Sunrise Hour"
     min_value: 0
     max_value: 23
     step: 1
@@ -104,7 +106,8 @@ number:
 
   - platform: template
     id: white_intensity
-    name: "White LED Intensity (%)"
+    name: "White LED Intensity"
+    unit_of_measurement: "%"
     icon: mdi:lightbulb-outline
     min_value: 0
     max_value: 100
@@ -120,11 +123,12 @@ number:
 
   - platform: template
     id: color_r
-    name: "RGB Red (0-255)"
+    name: "RED LED Intensity"
     icon: mdi:palette
     min_value: 0
-    max_value: 255
+    max_value: 100
     step: 1
+    unit_of_measurement: "%"
     web_server:
       sorting_group_id: grp_lights
       sorting_weight: 35    
@@ -136,11 +140,12 @@ number:
 
   - platform: template
     id: color_g
-    name: "RGB Green (0-255)"
+    name: "Green LED Intensity"
     icon: mdi:palette
     min_value: 0
-    max_value: 255
+    max_value: 100
     step: 1
+    unit_of_measurement: "%"
     optimistic: true
     web_server:
       sorting_group_id: grp_lights
@@ -152,17 +157,18 @@ number:
 
   - platform: template
     id: color_b
-    name: "RGB Blue (0-255)"
+    name: "Blue LED Intensity"
     icon: mdi:palette
     min_value: 0
-    max_value: 255    
+    max_value: 100
     step: 1
+    unit_of_measurement: "%"
     web_server:
       sorting_group_id: grp_lights
       sorting_weight: 55    
     optimistic: true
     restore_value: true
-    initial_value: 255
+    initial_value: 100
     set_action:
       - script.execute: lighting_control_manager
 

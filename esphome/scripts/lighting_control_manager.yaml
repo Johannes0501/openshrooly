@@ -2,6 +2,36 @@ id: lighting_control_manager
 mode: queued
 then:
   - lambda: |-
+      // Helper function to apply RGB settings
+      auto apply_rgb_settings = [](float transition_ms = 0) {
+        // Get RGB values as percentages (0-100)
+        float r = id(color_r).state / 100.0f;
+        float g = id(color_g).state / 100.0f;
+        float b = id(color_b).state / 100.0f;
+
+        // The max component determines brightness
+        float maxc = std::max(r, std::max(g, b));
+
+        auto rgb_call = id(rgb_led_strip).turn_on();
+        if (maxc <= 0.0005f) {
+          // All colors are 0, turn off
+          rgb_call.set_brightness(0.0f);
+        } else {
+          // Set color ratios and use max as brightness
+          rgb_call.set_rgb(r / maxc, g / maxc, b / maxc);
+          rgb_call.set_brightness(maxc);
+        }
+
+        if (transition_ms > 0) {
+          rgb_call.set_transition_length(transition_ms);
+        }
+
+        rgb_call.perform();
+
+        return maxc;  // Return brightness for logging if needed
+      };
+
+      // Rest of the lambda code continues...
       // Use system's local time directly - it's already synced with NTP and has timezone applied
       struct tm timeinfo;
       time_t now;
@@ -80,13 +110,19 @@ then:
         if (end_min > 1440) {
           // Schedule crosses midnight
           int end_min_today = end_min % 1440;
+
+          // Check if we're in the early morning part of yesterday's schedule
           if (local_min < end_min_today) {
-            // We're before the end time (early morning), lights turn on at start_min yesterday
-            // but that's in the past, so show when they turn off
+            // We're in early morning, lights already turned on yesterday at start_min
+            // They'll turn on again today at start_min
+            id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d",
+                                                       sunrise_h, 0).c_str());
+          } else if (local_min < start_min) {
+            // We're before today's start time - lights turn on today
             id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d",
                                                        sunrise_h, 0).c_str());
           } else {
-            // We're after the end time, lights turn on tomorrow
+            // We're after today's start time - lights turn on tomorrow
             id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d tomorrow",
                                                        sunrise_h, 0).c_str());
           }
@@ -134,20 +170,8 @@ then:
           w_on.set_transition_length(2000);  // Faster transition for manual changes
           w_on.perform();
 
-          // RGB channel
-          float r = id(color_r).state / 255.0f;
-          float g = id(color_g).state / 255.0f;
-          float b = id(color_b).state / 255.0f;
-          float maxc = std::max(r, std::max(g, b));
-          auto rgb_on = id(rgb_led_strip).turn_on();
-          if (maxc <= 0.0005f) {
-            rgb_on.set_brightness(0.0f);
-          } else {
-            rgb_on.set_rgb(r / maxc, g / maxc, b / maxc);
-            rgb_on.set_brightness(maxc);
-          }
-          rgb_on.set_transition_length(2000);
-          rgb_on.perform();
+          // RGB channel - use the helper function
+          apply_rgb_settings(2000);  // 2 second transition
 
           ESP_LOGI("shrooly", "Lights ON (schedule change) — white=%.0f%%, rgb=(%d,%d,%d)",
                    id(white_intensity).state,
@@ -182,9 +206,9 @@ then:
           w_on.perform();
 
           // RGB channel
-          float r = id(color_r).state / 255.0f;
-          float g = id(color_g).state / 255.0f;
-          float b = id(color_b).state / 255.0f;
+          float r = id(color_r).state / 100.0f;
+          float g = id(color_g).state / 100.0f;
+          float b = id(color_b).state / 100.0f;
           float maxc = std::max(r, std::max(g, b));
           auto rgb_on = id(rgb_led_strip).turn_on();
           if (maxc <= 0.0005f) {
@@ -239,17 +263,8 @@ then:
         int Gi = (int) id(color_g).state;
         int Bi = (int) id(color_b).state;
 
-        float r = Ri / 255.0f, g = Gi / 255.0f, b = Bi / 255.0f;
-        float maxc = std::max(r, std::max(g, b));
-
-        auto rgb_set = id(rgb_led_strip).turn_on();
-        if (maxc <= 0.0005f) {
-          rgb_set.set_brightness(0.0f);
-        } else {
-          rgb_set.set_rgb(r / maxc, g / maxc, b / maxc);
-          rgb_set.set_brightness(maxc);
-        }
-        rgb_set.perform();
+        // Use the helper function (no transition for real-time updates)
+        apply_rgb_settings();
 
         if (Ri != last_r || Gi != last_g || Bi != last_b) {
           ESP_LOGI("shrooly", "RGB -> (%d,%d,%d)", Ri, Gi, Bi);

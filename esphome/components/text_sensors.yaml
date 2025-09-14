@@ -14,7 +14,7 @@ text_sensor:
 
   - platform: template
     id: lights_status
-    name: "Lights Status"
+    name: "Light Status"
     icon: mdi:lightbulb-on-outline
     web_server:
       sorting_group_id: grp_lights

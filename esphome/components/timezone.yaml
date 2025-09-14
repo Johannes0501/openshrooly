@@ -9,6 +9,9 @@ select:
     name: "Timezone"
     icon: mdi:map-clock-outline
     entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "America/Denver"  # Default timezone
     web_server:
       sorting_group_id: grp_lights
       sorting_weight: 1
@@ -89,10 +92,6 @@ select:
       - "Pacific/Auckland"         # New Zealand Time
       - "Pacific/Fiji"             # Fiji Time
       - "Pacific/Honolulu"         # Hawaii Time
-
-    initial_option: "America/New_York"
-    restore_value: true
-    optimistic: true
     on_value:
       then:
         - lambda: |-
@@ -120,12 +119,64 @@ select:
               posix_tz = "JST-9";  // Japan Standard Time (no DST)
             } else if (tz == "Australia/Sydney") {
               posix_tz = "AEST-10AEDT,M10.1.0,M4.1.0/3";  // Australian Eastern Time with DST
+            } else if (tz == "America/Phoenix") {
+              posix_tz = "MST7";  // Arizona (no DST)
+            } else if (tz == "America/Toronto") {
+              posix_tz = "EST5EDT,M3.2.0,M11.1.0";  // Same as New York
+            } else if (tz == "America/Vancouver") {
+              posix_tz = "PST8PDT,M3.2.0,M11.1.0";  // Same as Los Angeles
+            } else if (tz == "Europe/Paris") {
+              posix_tz = "CET-1CEST,M3.5.0,M10.5.0/3";  // Same as Berlin
+            } else if (tz == "Europe/Madrid") {
+              posix_tz = "CET-1CEST,M3.5.0,M10.5.0/3";  // Same as Berlin
+            } else if (tz == "Europe/Rome") {
+              posix_tz = "CET-1CEST,M3.5.0,M10.5.0/3";  // Same as Berlin
+            } else if (tz == "Europe/Moscow") {
+              posix_tz = "MSK-3";  // Moscow Time (no DST)
+            } else if (tz == "Asia/Shanghai") {
+              posix_tz = "CST-8";  // China Standard Time (no DST)
+            } else if (tz == "Asia/Singapore") {
+              posix_tz = "SGT-8";  // Singapore Time (no DST)
+            } else if (tz == "Asia/Dubai") {
+              posix_tz = "GST-4";  // Gulf Standard Time (no DST)
+            } else if (tz == "Australia/Perth") {
+              posix_tz = "AWST-8";  // Western Australia (no DST)
+            } else if (tz == "Australia/Brisbane") {
+              posix_tz = "AEST-10";  // Queensland (no DST)
+            } else if (tz == "Pacific/Auckland") {
+              posix_tz = "NZST-12NZDT,M9.5.0,M4.1.0/3";  // New Zealand
+            } else if (tz == "Pacific/Honolulu") {
+              posix_tz = "HST10";  // Hawaii (no DST)
+            } else if (tz == "America/Mexico_City") {
+              posix_tz = "CST6CDT,M4.1.0,M10.5.0";  // Mexico Central Time
+            } else if (tz == "America/Sao_Paulo") {
+              posix_tz = "BRT3BRST,M10.3.0/0,M2.3.0/0";  // Brazil Time
+            } else if (tz == "America/Buenos_Aires") {
+              posix_tz = "ART3";  // Argentina (no DST)
+            } else if (tz == "Asia/Kolkata") {
+              posix_tz = "IST-5:30";  // India Standard Time
+            } else if (tz == "Asia/Seoul") {
+              posix_tz = "KST-9";  // Korea Standard Time (no DST)
+            } else if (tz == "Asia/Bangkok") {
+              posix_tz = "ICT-7";  // Indochina Time (no DST)
             } else {
               // Default to UTC if timezone not recognized
               posix_tz = "UTC0";
+              ESP_LOGW("timezone", "Unknown timezone '%s', defaulting to UTC", tz.c_str());
             }
 
             setenv("TZ", posix_tz.c_str(), 1);
             tzset();
 
+            // Get and display the new local time
+            time_t now = ::time(nullptr);
+            struct tm timeinfo;
+            localtime_r(&now, &timeinfo);
+
             ESP_LOGI("timezone", "Set timezone to %s (POSIX: %s)", tz.c_str(), posix_tz.c_str());
+            ESP_LOGI("timezone", "New local time: %04d-%02d-%02d %02d:%02d:%02d",
+                     timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
+                     timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+            // Force lighting schedule to recalculate with new timezone
+            id(lighting_control_manager).execute();

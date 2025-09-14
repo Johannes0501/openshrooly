@@ -11,16 +11,16 @@ then:
         float h = id(humidity).state;
         float t = id(target_humidity).state;
 
-        if (!id(humidifier_on_flag) && h < t - 0.5f) {
-          // Turn ON
+        if (!id(humidifier_on_flag) && h < t - 3.0f) {
+          // Turn ON at target - 3%
           id(humidifier_on_flag) = true;
           id(humidifier_fan).turn_on();
 
           // Schedule effectiveness check (it will save its own start humidity)
           id(humidifier_effectiveness_check).execute();
 
-        } else if (id(humidifier_on_flag) && h > t + 0.5f) {
-          // Turn OFF
+        } else if (id(humidifier_on_flag) && h > t - 2.0f) {
+          // Turn OFF at target - 2%
           id(humidifier_on_flag) = false;
           id(humidifier_fan).turn_off();
         }

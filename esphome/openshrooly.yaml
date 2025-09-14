@@ -4,7 +4,7 @@ esphome:
   friendly_name: OpenShrooly
   project:
     name: grahamsz.openshrooly
-    version: 0.2.3
+    version: 0.4.0
   platformio_options:
     build_flags:
       - -Wno-cpp  # Suppress preprocessor warnings (including deprecation warnings)
@@ -12,25 +12,13 @@ esphome:
   on_boot:
     priority: -10
     then:
-      # Set timezone environment variable for system clock
+      # Trigger timezone setup from saved value
       - lambda: |-
-          // Initialize TZ environment variable with the stored timezone
-          std::string tz = id(timezone_select).state;
-          std::string posix_tz;
-          if (tz == "America/Denver") {
-            posix_tz = "MST7MDT,M3.2.0,M11.1.0";
-          } else if (tz == "America/New_York") {
-            posix_tz = "EST5EDT,M3.2.0,M11.1.0";
-          } else if (tz == "America/Los_Angeles") {
-            posix_tz = "PST8PDT,M3.2.0,M11.1.0";
-          } else if (tz == "America/Chicago") {
-            posix_tz = "CST6CDT,M3.2.0,M11.1.0";
-          } else {
-            posix_tz = "UTC0";
-          }
-          setenv("TZ", posix_tz.c_str(), 1);
-          tzset();
-          ESP_LOGI("boot", "Set system timezone to %s (POSIX: %s)", tz.c_str(), posix_tz.c_str());
+          // The timezone on_value handler will set everything up
+          // Just trigger it with the restored value
+          ESP_LOGI("boot", "Restoring timezone: %s", id(timezone_select).state.c_str());
+          // Force the on_value handler to run with current value
+          id(timezone_select).publish_state(id(timezone_select).state);
 
       # Air exchange manager can run right away
       - script.execute: air_exchange_manager
@@ -102,6 +90,13 @@ esp32:
 
 logger:
   level: INFO
+#  logs:
+    # Suppress component timing warnings
+    #component: ERROR  # Only show errors, not warnings about timing
+    #safe_mode: ERROR  # Suppress safe_mode timing warnings
+    # Optionally suppress other noisy components
+    # sensor: WARN  # Reduce sensor logging
+    # time: WARN    # Reduce time sync logging
 
 api:
   reboot_timeout: 0s
@@ -150,7 +145,11 @@ script:
   # Touch button monitoring script (polls every 200ms)
   - !include scripts/touch_button_monitor.yaml
 
+  # Water level calculation script (called by an interval)
+  - !include scripts/water_level_calculator.yaml
+
 interval:
+  # Water level check interval (every 30 seconds)
   - interval: 1s
     then:
       - script.execute: lighting_control_manager
@@ -180,6 +179,11 @@ interval:
             data[0] = 0x00; data[1] = 0x00;
             bool err = id(bus_a).write(0x6C, data, 2);
           }
+
+  - interval: 30s # Every 30 seconds, run the water level calculator
+    then:
+      - script.execute: water_level_calculator          
+
   - interval: 5min
     then:
       - component.update: my_display
