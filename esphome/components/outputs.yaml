@@ -38,7 +38,7 @@ light:
     id: rgb_led_strip
     pin: GPIO42
     num_leds: 16
-    #rmt_channel: 0
+    rmt_channel: 0
     chipset: ws2812
     rgb_order: RGB
     web_server:
