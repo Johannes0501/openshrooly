@@ -4,7 +4,7 @@ esphome:
   friendly_name: OpenShrooly
   project:
     name: grahamsz.openshrooly
-    version: 0.4.0
+    version: 0.4.1
   platformio_options:
     build_flags:
       - -Wno-cpp  # Suppress preprocessor warnings (including deprecation warnings)
