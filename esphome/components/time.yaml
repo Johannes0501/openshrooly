@@ -1,15 +1,16 @@
-# This syncs the internal clock to NTP - how can we control the timezone better?
+# This syncs the internal clock to NTP in LOCAL TIME
+# The timezone is dynamically set based on user selection
 
 time:
   - platform: sntp
     id: sntp_time
-    timezone: "Etc/UTC"
+    timezone: "UTC0"  # This gets updated dynamically by timezone selector
     on_time_sync:
       then:
         - lambda: |-
             auto now = id(sntp_time).now();
             if (now.is_valid()) {
-              ESP_LOGI("time", "SNTP time sync successful: %04d-%02d-%02d %02d:%02d:%02d UTC",
+              ESP_LOGI("time", "SNTP time sync successful: %04d-%02d-%02d %02d:%02d:%02d (LOCAL TIME)",
                        now.year, now.month, now.day_of_month,
                        now.hour, now.minute, now.second);
             } else {

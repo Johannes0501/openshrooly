@@ -18,6 +18,7 @@ then:
 
           // Schedule effectiveness check (it will save its own start humidity)
           id(humidifier_effectiveness_check).execute();
+
         } else if (id(humidifier_on_flag) && h > t + 0.5f) {
           // Turn OFF
           id(humidifier_on_flag) = false;

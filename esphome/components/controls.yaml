@@ -4,6 +4,7 @@ number:
   - platform: template
     id: target_humidity
     name: "Target Humidity (%)"
+    icon: mdi:water-percent
     min_value: 30
     max_value: 100
     step: 0.5
@@ -22,6 +23,7 @@ number:
   - platform: template
     id: air_exchange_period_min
     name: "Air Exchange: Period (min)"
+    icon: mdi:clock-outline
     min_value: 1
     max_value: 240
     step: 1
@@ -37,6 +39,7 @@ number:
   - platform: template
     id: air_exchange_run_sec
     name: "Air Exchange: Run Duration (s)"
+    icon: mdi:timer-outline
     min_value: 5
     max_value: 900
     step: 5
@@ -52,6 +55,7 @@ number:
   - platform: template
     id: air_exchange_speed
     name: "Air Exchange: Speed (%)"
+    icon: mdi:fan
     min_value: 0
     max_value: 100
     step: 5
@@ -66,22 +70,26 @@ number:
 
   - platform: template
     id: sunrise_hour
-    name: "Lights: Sunrise Hour (UTC)"
+    name: "Lights: Turn ON at Hour (Local Time)"
     min_value: 0
     max_value: 23
     step: 1
     web_server:
       sorting_group_id: grp_lights
-      sorting_weight: 5    
+      sorting_weight: 5
     optimistic: true
     restore_value: true
     initial_value: 8
+    unit_of_measurement: ":00"
+    entity_category: config
+    icon: mdi:weather-sunset-up
     set_action:
       - script.execute: lighting_control_manager
 
   - platform: template
     id: light_hours
     name: "Lights: Duration (Hours)"
+    icon: mdi:clock-time-eight
     min_value: 0
     max_value: 24
     step: 0.25
@@ -97,6 +105,7 @@ number:
   - platform: template
     id: white_intensity
     name: "White LED Intensity (%)"
+    icon: mdi:lightbulb-outline
     min_value: 0
     max_value: 100
     step: 1
@@ -112,6 +121,7 @@ number:
   - platform: template
     id: color_r
     name: "RGB Red (0-255)"
+    icon: mdi:palette
     min_value: 0
     max_value: 255
     step: 1
@@ -127,6 +137,7 @@ number:
   - platform: template
     id: color_g
     name: "RGB Green (0-255)"
+    icon: mdi:palette
     min_value: 0
     max_value: 255
     step: 1
@@ -142,6 +153,7 @@ number:
   - platform: template
     id: color_b
     name: "RGB Blue (0-255)"
+    icon: mdi:palette
     min_value: 0
     max_value: 255    
     step: 1
@@ -161,6 +173,7 @@ text_sensor:
   - platform: template
     id: humidifier_fan_status
     name: "Humidifier Fan Status"
+    icon: mdi:air-humidifier
     internal: true
     web_server:
       sorting_group_id: grp_humidity
@@ -169,6 +182,7 @@ text_sensor:
   - platform: template
     id: air_exchange_status
     name: "Air Exchange Status"
+    icon: mdi:fan-auto
     internal: true    
     web_server:
       sorting_group_id: grp_air
@@ -177,6 +191,7 @@ text_sensor:
   - platform: template
     id: lights_status
     name: "Lights Status"
+    icon: mdi:lightbulb-on-outline
     internal: true
     web_server:
       sorting_group_id: grp_lights
@@ -188,6 +203,7 @@ text_sensor:
 button:
   - platform: template
     name: "Beeper Test"
+    icon: mdi:volume-high
     web_server:
       sorting_group_id: grp_extras
       sorting_weight: 1    
@@ -196,6 +212,7 @@ button:
 
   - platform: template
     name: "Reprogram RP2040 coprocessor"
+    icon: mdi:chip
     id: reprogram_shrooly
     on_press:
       - swd_programmer.program: swd

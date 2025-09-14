@@ -5,16 +5,19 @@ then:
       auto t = id(sntp_time).now();
       if (!t.is_valid()) return;
 
-      // ---- window calc ----
+      // ---- Time is already in LOCAL TIME thanks to SNTP timezone setting ----
+      // No offset calculations needed!
+      const int local_min = t.hour * 60 + t.minute;
+      const int local_sec = t.hour * 3600 + t.minute * 60 + t.second;
+
+      // ---- window calc using LOCAL time ----
       const int sunrise_h = (int) id(sunrise_hour).state;
       const int start_min = sunrise_h * 60;
       const int end_min   = sunrise_h * 60 + (int)(id(light_hours).state * 60);
-      const int now_min   = t.hour * 60 + t.minute;
-      const bool in_win   = (now_min >= start_min) && (now_min < end_min);
+      const bool in_win   = (local_min >= start_min) && (local_min < end_min);
 
       // ---- publish status every second with countdown ----
-      const int now_sec = t.hour * 3600 + t.minute * 60 + t.second;
-      
+
       auto format_duration = [](int total_seconds) {
           if (total_seconds < 60) {
               return str_sprintf("%ds", total_seconds);
@@ -31,17 +34,20 @@ then:
       };
 
       if (in_win) {
-        int sec_left = end_min * 60 - now_sec;
-        if (sec_left < 0) sec_left = 0;
-        id(lights_status).publish_state(str_sprintf("ON, %s left", format_duration(sec_left).c_str()).c_str());
-      } else if (now_min < start_min) {
-        int sec_to_on = start_min * 60 - now_sec;
-        if (sec_to_on < 0) sec_to_on = 0;
-        id(lights_status).publish_state(str_sprintf("OFF, %s left", format_duration(sec_to_on).c_str()).c_str());
+        // Calculate turn OFF time
+        int off_hour = (end_min / 60) % 24;
+        int off_minute = end_min % 60;
+        id(lights_status).publish_state(str_sprintf("ON — turns OFF at %02d:%02d", off_hour, off_minute).c_str());
+      } else if (local_min < start_min) {
+        // Calculate turn ON time (today)
+        int on_hour = (start_min / 60) % 24;
+        int on_minute = start_min % 60;
+        id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d", on_hour, on_minute).c_str());
       } else {
-        int sec_to_tomorrow_on = ((24 * 60 - now_min) + start_min) * 60 - t.second;
-        if (sec_to_tomorrow_on < 0) sec_to_tomorrow_on = 0;
-        id(lights_status).publish_state(str_sprintf("OFF — next ON in %s", format_duration(sec_to_tomorrow_on).c_str()).c_str());
+        // Calculate turn ON time (tomorrow)
+        int on_hour = (start_min / 60) % 24;
+        int on_minute = start_min % 60;
+        id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d tomorrow", on_hour, on_minute).c_str());
       }
 
       // ---- edge detection & one-shot transitions + logging ----

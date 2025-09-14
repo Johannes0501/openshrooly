@@ -25,6 +25,12 @@ globals:
     restore_value: yes
     initial_value: 'false'
 
+  - id: tz_offset
+    type: float
+    restore_value: yes
+    initial_value: '0'
+
+  # Humidifier monitoring variables
   - id: humidifier_start_humidity
     type: float
     restore_value: no

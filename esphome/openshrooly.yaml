@@ -5,6 +5,9 @@ esphome:
   project:
     name: grahamsz.openshrooly
     version: 0.2.3
+  platformio_options:
+    build_flags:
+      - -Wno-cpp  # Suppress preprocessor warnings (including deprecation warnings)
 
   on_boot:
     priority: -10
@@ -95,13 +98,13 @@ interval:
   - interval: 1s
     then:
       - script.execute: lighting_control_manager
-  
+
   - interval: 60s
     then:
       - lambda: |-
           auto t = id(sntp_time).now();
           if (t.is_valid()) {
-          ESP_LOGI("time", 
+          ESP_LOGI("time",
             "Current time is: %04d-%02d-%02d %02d:%02d:%02d UTC",
             t.year, t.month, t.day_of_month,
             t.hour, t.minute, t.second
@@ -117,20 +120,25 @@ interval:
           uint8_t data[2];
           if (id(humidifier_fan).state) {
             data[0] = 0x00; data[1] = 0x01;
-            bool err = id(bus_a).write(0x6C, data, 2);           
+            bool err = id(bus_a).write(0x6C, data, 2);
           } else {
             data[0] = 0x00; data[1] = 0x00;
             bool err = id(bus_a).write(0x6C, data, 2);
-          }  
+          }
   - interval: 5min
     then:
       - component.update: my_display
 
-            
+
 <<: !include components/globals.yaml
 <<: !include components/controls.yaml
 <<: !include components/time.yaml
-<<: !include components/hardware.yaml
+<<: !include components/timezone.yaml
+<<: !include components/communication.yaml
+<<: !include components/outputs.yaml
+<<: !include components/sensors.yaml
+<<: !include components/display.yaml
+<<: !include components/buttons.yaml
 <<: !include components/webserver.yaml
 
 
