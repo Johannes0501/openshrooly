@@ -104,12 +104,11 @@ interval:
       - lambda: |-
           auto t = id(sntp_time).now();
           if (t.is_valid()) {
-          ESP_LOGI("time",
-            "Current time is: %04d-%02d-%02d %02d:%02d:%02d UTC",
-            t.year, t.month, t.day_of_month,
-            t.hour, t.minute, t.second
-          );
-
+            ESP_LOGI("time",
+              "Local time: %04d-%02d-%02d %02d:%02d:%02d",
+              t.year, t.month, t.day_of_month,
+              t.hour, t.minute, t.second
+            );
           } else {
             ESP_LOGW("time", "SNTP time not valid yet");
           }

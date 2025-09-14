@@ -1,7 +1,6 @@
 # ========================================================================
-# TIMEZONE CONFIGURATION
-# Comprehensive timezone selection for worldwide use
-# Note: tz_offset global variable is defined in globals.yaml
+# TIMEZONE CONFIGURATION WITH AUTOMATIC DST HANDLING
+# Uses IANA timezone database strings for proper DST transitions
 # ========================================================================
 
 select:
@@ -14,132 +13,90 @@ select:
       sorting_group_id: grp_lights
       sorting_weight: 1
     options:
-      # Sorted from UTC-12 to UTC+13
-      - "UTC-11 Midway/Samoa"
-      - "UTC-10 Hawaii/Aleutian"
-      - "UTC-09 Alaska"
-      - "UTC-08 Los Angeles/Vancouver"
-      - "UTC-08 Tijuana/Baja California"
-      - "UTC-07 Denver/Phoenix/Calgary"
-      - "UTC-07 Chihuahua/Mazatlan"
-      - "UTC-06 Chicago/Mexico City"
-      - "UTC-06 Guatemala/Managua"
-      - "UTC-05 New York/Toronto"
-      - "UTC-05 Bogota/Lima/Quito"
-      - "UTC-05 Havana/Panama"
-      - "UTC-04 Santiago/La Paz"
-      - "UTC-04 Halifax/Puerto Rico"
-      - "UTC-03.5 Newfoundland"
-      - "UTC-03 Buenos Aires/Sao Paulo"
-      - "UTC-03 Brasilia/Montevideo"
-      - "UTC-02 Mid-Atlantic"
-      - "UTC-01 Azores/Cape Verde"
-      - "UTC+00 London/Dublin/Lisbon"
-      - "UTC+00 Iceland/Ghana/Morocco"
-      - "UTC+01 Berlin/Paris/Rome"
-      - "UTC+01 Amsterdam/Brussels/Madrid"
-      - "UTC+01 Stockholm/Oslo/Warsaw"
-      - "UTC+02 Athens/Helsinki/Cairo"
-      - "UTC+02 Jerusalem/Bucharest/Kiev"
-      - "UTC+03 Moscow/Istanbul/Nairobi"
-      - "UTC+03 Baghdad/Kuwait/Riyadh"
-      - "UTC+03.5 Tehran"
-      - "UTC+04 Dubai/Baku/Tbilisi"
-      - "UTC+04.5 Kabul"
-      - "UTC+05 Karachi/Tashkent"
-      - "UTC+05.5 Mumbai/Delhi/Colombo"
-      - "UTC+05.75 Kathmandu"
-      - "UTC+06 Dhaka/Almaty"
-      - "UTC+06.5 Yangon"
-      - "UTC+07 Bangkok/Jakarta/Hanoi"
-      - "UTC+08 Beijing/Singapore/Perth"
-      - "UTC+08 Hong Kong/Manila/Taipei"
-      - "UTC+09 Tokyo/Seoul/Pyongyang"
-      - "UTC+09.5 Adelaide/Darwin"
-      - "UTC+10 Sydney/Melbourne/Brisbane"
-      - "UTC+10 Vladivostok/Guam"
-      - "UTC+11 Solomon Islands/Noumea"
-      - "UTC+12 Auckland/Fiji"
-      - "UTC+13 Samoa/Tonga"
+      # North America
+      - "America/Los_Angeles"      # Pacific Time (PST/PDT)
+      - "America/Denver"           # Mountain Time (MST/MDT)
+      - "America/Phoenix"          # Arizona (MST no DST)
+      - "America/Chicago"          # Central Time (CST/CDT)
+      - "America/New_York"         # Eastern Time (EST/EDT)
+      - "America/Toronto"          # Eastern Time (EST/EDT)
+      - "America/Mexico_City"      # Central Time Mexico
+      - "America/Vancouver"        # Pacific Time Canada
+      - "America/Edmonton"         # Mountain Time Canada
+      - "America/Winnipeg"         # Central Time Canada
+      - "America/Halifax"          # Atlantic Time
+      - "America/St_Johns"         # Newfoundland Time
 
-    initial_option: "UTC+00 London/Dublin/Lisbon"
-    optimistic: true
+      # Central/South America
+      - "America/Sao_Paulo"        # Brazil Time
+      - "America/Buenos_Aires"     # Argentina Time
+      - "America/Santiago"         # Chile Time
+      - "America/Bogota"           # Colombia Time
+      - "America/Lima"             # Peru Time
+      - "America/Caracas"          # Venezuela Time
+
+      # Europe
+      - "Europe/London"            # GMT/BST
+      - "Europe/Dublin"            # GMT/IST
+      - "Europe/Lisbon"            # WET/WEST
+      - "Europe/Paris"             # CET/CEST
+      - "Europe/Berlin"            # CET/CEST
+      - "Europe/Amsterdam"         # CET/CEST
+      - "Europe/Brussels"          # CET/CEST
+      - "Europe/Rome"              # CET/CEST
+      - "Europe/Madrid"            # CET/CEST
+      - "Europe/Warsaw"            # CET/CEST
+      - "Europe/Stockholm"         # CET/CEST
+      - "Europe/Oslo"              # CET/CEST
+      - "Europe/Athens"            # EET/EEST
+      - "Europe/Helsinki"          # EET/EEST
+      - "Europe/Istanbul"          # Turkey Time
+      - "Europe/Moscow"            # Moscow Time
+      - "Europe/Kiev"              # EET/EEST
+
+      # Middle East & Africa
+      - "Asia/Jerusalem"           # Israel Time
+      - "Asia/Dubai"               # Gulf Standard Time
+      - "Asia/Riyadh"              # Arabia Standard Time
+      - "Asia/Tehran"              # Iran Time
+      - "Africa/Cairo"             # Egypt Time
+      - "Africa/Johannesburg"      # South Africa Time
+      - "Africa/Lagos"             # West Africa Time
+      - "Africa/Nairobi"           # East Africa Time
+
+      # Asia
+      - "Asia/Karachi"             # Pakistan Time
+      - "Asia/Kolkata"             # India Time
+      - "Asia/Dhaka"               # Bangladesh Time
+      - "Asia/Bangkok"             # Indochina Time
+      - "Asia/Jakarta"             # Western Indonesia Time
+      - "Asia/Singapore"           # Singapore Time
+      - "Asia/Kuala_Lumpur"        # Malaysia Time
+      - "Asia/Manila"              # Philippines Time
+      - "Asia/Hong_Kong"           # Hong Kong Time
+      - "Asia/Shanghai"            # China Time
+      - "Asia/Taipei"              # Taiwan Time
+      - "Asia/Seoul"               # Korea Time
+      - "Asia/Tokyo"               # Japan Time
+
+      # Oceania
+      - "Australia/Perth"          # Western Australia
+      - "Australia/Adelaide"       # Central Australia (CST/CDT)
+      - "Australia/Darwin"         # Central Australia (no DST)
+      - "Australia/Brisbane"       # Eastern Australia (no DST)
+      - "Australia/Sydney"         # Eastern Australia (EST/EDT)
+      - "Australia/Melbourne"      # Eastern Australia (EST/EDT)
+      - "Pacific/Auckland"         # New Zealand Time
+      - "Pacific/Fiji"             # Fiji Time
+      - "Pacific/Honolulu"         # Hawaii Time
+
+    initial_option: "America/New_York"
     restore_value: true
+    optimistic: true
     on_value:
       then:
         - lambda: |-
-            // Extract offset from the string (e.g., "UTC+05.5" -> 5.5)
-            std::string selected = x;
-            float offset = 0;
-
-            // Find the UTC offset in the string
-            size_t pos = selected.find("UTC");
-            if (pos != std::string::npos) {
-              pos += 3; // Skip "UTC"
-
-              // Parse the number after UTC
-              std::string offset_str = "";
-              while (pos < selected.length()) {
-                char c = selected[pos];
-                if (c == ' ') break;
-                offset_str += c;
-                pos++;
-              }
-
-              // Convert string to float
-              offset = std::stof(offset_str);
-            }
-
-            id(tz_offset) = offset;
-
-            // Create timezone string for SNTP (e.g., "UTC-5" for EST)
-            std::string tz_string;
-            if (offset == 0) {
-              tz_string = "UTC0";
-            } else if (offset > 0) {
-              // Positive offset means ahead of UTC, so we use negative in POSIX format
-              tz_string = "UTC" + std::to_string((int)(-offset));
-            } else {
-              // Negative offset means behind UTC, so we use positive in POSIX format
-              tz_string = "UTC+" + std::to_string((int)(-offset));
-            }
-
-            ESP_LOGI("timezone", "Selected: %s, Offset: %.2f hours, SNTP timezone: %s",
-                     selected.c_str(), offset, tz_string.c_str());
-
-            // Update SNTP timezone and force resync
-            id(sntp_time).set_timezone(tz_string);
-
-            // Update lighting manager with new timezone
-            id(lighting_control_manager).execute();
-
-
-# Text sensor to display local time
-text_sensor:
-  - platform: template
-    id: local_time_display
-    name: "Current Local Time"
-    icon: mdi:clock-digital
-    web_server:
-      sorting_group_id: grp_lights
-      sorting_weight: 2
-    lambda: |-
-      auto t = id(sntp_time).now();
-      if (!t.is_valid()) return {"Time not synced"};
-
-      // Time is already in local timezone!
-      char buffer[32];
-      snprintf(buffer, sizeof(buffer), "%02d:%02d %s (%s %s %d)",
-        (t.hour > 12) ? t.hour - 12 : (t.hour == 0) ? 12 : t.hour,
-        t.minute,
-        (t.hour >= 12) ? "PM" : "AM",
-        (t.day_of_week == 1) ? "Sun" : (t.day_of_week == 2) ? "Mon" :
-        (t.day_of_week == 3) ? "Tue" : (t.day_of_week == 4) ? "Wed" :
-        (t.day_of_week == 5) ? "Thu" : (t.day_of_week == 6) ? "Fri" : "Sat",
-        (t.month == 1) ? "Jan" : (t.month == 2) ? "Feb" : (t.month == 3) ? "Mar" :
-        (t.month == 4) ? "Apr" : (t.month == 5) ? "May" : (t.month == 6) ? "Jun" :
-        (t.month == 7) ? "Jul" : (t.month == 8) ? "Aug" : (t.month == 9) ? "Sep" :
-        (t.month == 10) ? "Oct" : (t.month == 11) ? "Nov" : "Dec",
-        t.day_of_month);
-      return {buffer};
-    update_interval: 1s
+            // Set the timezone directly using the IANA timezone string
+            std::string tz = x;
+            id(sntp_time).set_timezone(tz.c_str());
+            ESP_LOGI("timezone", "Set timezone to %s (automatic DST handling)", tz.c_str());
