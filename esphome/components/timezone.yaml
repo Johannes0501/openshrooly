@@ -99,4 +99,33 @@ select:
             // Set the timezone directly using the IANA timezone string
             std::string tz = x;
             id(sntp_time).set_timezone(tz.c_str());
-            ESP_LOGI("timezone", "Set timezone to %s (automatic DST handling)", tz.c_str());
+
+            // Also set the system TZ environment variable for localtime_r to work
+            // Convert IANA timezone to POSIX TZ format for ESP32
+            // This is a simplified mapping - add more as needed
+            std::string posix_tz;
+            if (tz == "America/Denver") {
+              posix_tz = "MST7MDT,M3.2.0,M11.1.0";  // Mountain Time with DST
+            } else if (tz == "America/New_York") {
+              posix_tz = "EST5EDT,M3.2.0,M11.1.0";  // Eastern Time with DST
+            } else if (tz == "America/Los_Angeles") {
+              posix_tz = "PST8PDT,M3.2.0,M11.1.0";  // Pacific Time with DST
+            } else if (tz == "America/Chicago") {
+              posix_tz = "CST6CDT,M3.2.0,M11.1.0";  // Central Time with DST
+            } else if (tz == "Europe/London") {
+              posix_tz = "GMT0BST,M3.5.0/1,M10.5.0";  // UK Time with DST
+            } else if (tz == "Europe/Berlin") {
+              posix_tz = "CET-1CEST,M3.5.0,M10.5.0/3";  // Central European Time with DST
+            } else if (tz == "Asia/Tokyo") {
+              posix_tz = "JST-9";  // Japan Standard Time (no DST)
+            } else if (tz == "Australia/Sydney") {
+              posix_tz = "AEST-10AEDT,M10.1.0,M4.1.0/3";  // Australian Eastern Time with DST
+            } else {
+              // Default to UTC if timezone not recognized
+              posix_tz = "UTC0";
+            }
+
+            setenv("TZ", posix_tz.c_str(), 1);
+            tzset();
+
+            ESP_LOGI("timezone", "Set timezone to %s (POSIX: %s)", tz.c_str(), posix_tz.c_str());

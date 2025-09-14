@@ -56,7 +56,7 @@ number:
     id: air_exchange_speed
     name: "Air Exchange: Speed (%)"
     icon: mdi:fan
-    min_value: 0
+    min_value: 15  # Minimum 15% to ensure proper airflow
     max_value: 100
     step: 5
     web_server:
@@ -179,23 +179,7 @@ text_sensor:
       sorting_group_id: grp_humidity
       sorting_weight: 1   
 
-  - platform: template
-    id: air_exchange_status
-    name: "Air Exchange Status"
-    icon: mdi:fan-auto
-    internal: true    
-    web_server:
-      sorting_group_id: grp_air
-      sorting_weight: 1    
-
-  - platform: template
-    id: lights_status
-    name: "Lights Status"
-    icon: mdi:lightbulb-on-outline
-    internal: true
-    web_server:
-      sorting_group_id: grp_lights
-      sorting_weight: 1    
+  # Text sensors moved to components/text_sensors.yaml for earlier loading    
 
 
 

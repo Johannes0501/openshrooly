@@ -12,8 +12,31 @@ esphome:
   on_boot:
     priority: -10
     then:
+      # Set timezone environment variable for system clock
+      - lambda: |-
+          // Initialize TZ environment variable with the stored timezone
+          std::string tz = id(timezone_select).state;
+          std::string posix_tz;
+          if (tz == "America/Denver") {
+            posix_tz = "MST7MDT,M3.2.0,M11.1.0";
+          } else if (tz == "America/New_York") {
+            posix_tz = "EST5EDT,M3.2.0,M11.1.0";
+          } else if (tz == "America/Los_Angeles") {
+            posix_tz = "PST8PDT,M3.2.0,M11.1.0";
+          } else if (tz == "America/Chicago") {
+            posix_tz = "CST6CDT,M3.2.0,M11.1.0";
+          } else {
+            posix_tz = "UTC0";
+          }
+          setenv("TZ", posix_tz.c_str(), 1);
+          tzset();
+          ESP_LOGI("boot", "Set system timezone to %s (POSIX: %s)", tz.c_str(), posix_tz.c_str());
+
       # Air exchange manager can run right away
       - script.execute: air_exchange_manager
+
+      # Start touch button monitoring
+      - script.execute: touch_button_monitor
 
       # Wait a couple seconds before programming
       - delay: 2s
@@ -41,6 +64,33 @@ esphome:
           condition:
             lambda: 'return !isnan(id(humidity).state);'
           timeout: 30s
+
+      # Force resync humidifier state after boot
+      - lambda: |-
+          ESP_LOGI("boot", "Resyncing humidifier state after boot");
+          if (id(humidifier_on_flag)) {
+            ESP_LOGI("boot", "Humidifier should be ON - sending I2C command");
+            uint8_t data[2] = {0x00, 0x01};
+            bool err = id(bus_a).write(0x6C, data, 2);
+            if (err) {
+              ESP_LOGW("boot", "Failed to turn on humidifier via I2C");
+            } else {
+              ESP_LOGI("boot", "Successfully sent humidifier ON command");
+            }
+            // Also trigger the component to ensure it's in sync
+            id(humidifier_fan).turn_on();
+          } else {
+            ESP_LOGI("boot", "Humidifier should be OFF - sending I2C command");
+            uint8_t data[2] = {0x00, 0x00};
+            bool err = id(bus_a).write(0x6C, data, 2);
+            if (err) {
+              ESP_LOGW("boot", "Failed to turn off humidifier via I2C");
+            } else {
+              ESP_LOGI("boot", "Successfully sent humidifier OFF command");
+            }
+            // Also trigger the component to ensure it's in sync
+            id(humidifier_fan).turn_off();
+          }
 
       # Now run the humidity control manager
       - script.execute: humidity_control_manager
@@ -79,6 +129,9 @@ wifi:
 
 captive_portal:
 
+# Include text sensors early so scripts can reference them
+<<: !include components/text_sensors.yaml
+
 script:
   # This runs in a continuous loop (or when the timing is changed)
   - !include scripts/air_exchange_manager.yaml
@@ -93,6 +146,9 @@ script:
   - !include scripts/fan_rpm_check.yaml
   - !include scripts/fan_stop_check.yaml
   - !include scripts/humidifier_effectiveness_check.yaml
+
+  # Touch button monitoring script (polls every 200ms)
+  - !include scripts/touch_button_monitor.yaml
 
 interval:
   - interval: 1s
@@ -130,6 +186,7 @@ interval:
 
 
 <<: !include components/globals.yaml
+<<: !include components/calibration.yaml
 <<: !include components/controls.yaml
 <<: !include components/time.yaml
 <<: !include components/timezone.yaml

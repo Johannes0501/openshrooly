@@ -16,7 +16,11 @@ web_server:
       sorting_weight: 30
     - id: grp_env
       name: "Environment"
-      sorting_weight: 99
+      sorting_weight: 40
+
+    - id: grp_calibration
+      name: "Water Calibration"
+      sorting_weight: 90
 
     - id: grp_extras
       name: "Extras"

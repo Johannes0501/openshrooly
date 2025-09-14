@@ -30,3 +30,36 @@ globals:
     type: float
     restore_value: no
     initial_value: '0'
+
+  # Water level calibration values (persist across reboots)
+  # Updated default values from your current dry measurements
+  - id: water_cal_s0_dry
+    type: uint32_t
+    restore_value: yes
+    initial_value: '42000'  # Average of recent dry readings
+
+  - id: water_cal_s1_dry
+    type: uint32_t
+    restore_value: yes
+    initial_value: '39470'
+
+  - id: water_cal_s2_dry
+    type: uint32_t
+    restore_value: yes
+    initial_value: '38470'
+
+  - id: water_cal_s3_dry
+    type: uint32_t
+    restore_value: yes
+    initial_value: '37395'
+
+  - id: is_calibrated
+    type: bool
+    restore_value: yes
+    initial_value: 'false'  # Keep uncalibrated UI behavior
+
+  # Calibration state
+  - id: calibration_step
+    type: int
+    restore_value: no
+    initial_value: '0'

@@ -2,19 +2,56 @@ id: lighting_control_manager
 mode: queued
 then:
   - lambda: |-
-      auto t = id(sntp_time).now();
-      if (!t.is_valid()) return;
+      // Use system's local time directly - it's already synced with NTP and has timezone applied
+      struct tm timeinfo;
+      time_t now;
+      ::time(&now);  // Use global scope to avoid ambiguity with esphome::time namespace
+      localtime_r(&now, &timeinfo);
 
-      // ---- Time is already in LOCAL TIME thanks to SNTP timezone setting ----
-      // No offset calculations needed!
-      const int local_min = t.hour * 60 + t.minute;
-      const int local_sec = t.hour * 3600 + t.minute * 60 + t.second;
+      // Validate that system time is set (year > 2020)
+      if (timeinfo.tm_year + 1900 < 2020) {
+        ESP_LOGW("light_debug", "System time not yet synchronized");
+        return;
+      }
+
+      const int local_min = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+      const int local_sec = timeinfo.tm_hour * 3600 + timeinfo.tm_min * 60 + timeinfo.tm_sec;
 
       // ---- window calc using LOCAL time ----
       const int sunrise_h = (int) id(sunrise_hour).state;
       const int start_min = sunrise_h * 60;
-      const int end_min   = sunrise_h * 60 + (int)(id(light_hours).state * 60);
-      const bool in_win   = (local_min >= start_min) && (local_min < end_min);
+      const int duration_min = (int)(id(light_hours).state * 60);
+      const int end_min = start_min + duration_min;
+
+      // Debug logging - commented out now that timezone is working
+      // static int debug_counter = 0;
+      // if (++debug_counter >= 10) {  // Log every 10 executions to avoid spam
+      //   ESP_LOGI("light_debug", "System time: %02d:%02d:%02d (min=%d)",
+      //            timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, local_min);
+      //   ESP_LOGI("light_debug", "Schedule: start_hour=%d, start_min=%d, duration_min=%d, end_min=%d",
+      //            sunrise_h, start_min, duration_min, end_min);
+      //   ESP_LOGI("light_debug", "Light hours raw value: %.2f", id(light_hours).state);
+      //   debug_counter = 0;
+      // }
+
+      // Handle schedules that cross midnight
+      bool in_win;
+      if (end_min <= 1440) {
+        // Schedule doesn't cross midnight
+        in_win = (local_min >= start_min) && (local_min < end_min);
+        // if (debug_counter == 0) {
+        //   ESP_LOGI("light_debug", "No midnight cross: in_win=%s (local=%d >= start=%d && local < end=%d)",
+        //            in_win ? "YES" : "NO", local_min, start_min, end_min);
+        // }
+      } else {
+        // Schedule crosses midnight
+        const int end_min_today = end_min % 1440;  // Time after midnight
+        in_win = (local_min >= start_min) || (local_min < end_min_today);
+        // if (debug_counter == 0) {
+        //   ESP_LOGI("light_debug", "Crosses midnight: in_win=%s (local=%d >= start=%d OR local < end_today=%d)",
+        //            in_win ? "YES" : "NO", local_min, start_min, end_min_today);
+        // }
+      }
 
       // ---- publish status every second with countdown ----
 
@@ -38,22 +75,101 @@ then:
         int off_hour = (end_min / 60) % 24;
         int off_minute = end_min % 60;
         id(lights_status).publish_state(str_sprintf("ON — turns OFF at %02d:%02d", off_hour, off_minute).c_str());
-      } else if (local_min < start_min) {
-        // Calculate turn ON time (today)
-        int on_hour = (start_min / 60) % 24;
-        int on_minute = start_min % 60;
-        id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d", on_hour, on_minute).c_str());
       } else {
-        // Calculate turn ON time (tomorrow)
-        int on_hour = (start_min / 60) % 24;
-        int on_minute = start_min % 60;
-        id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d tomorrow", on_hour, on_minute).c_str());
+        // Determine if lights turn on today or tomorrow
+        if (end_min > 1440) {
+          // Schedule crosses midnight
+          int end_min_today = end_min % 1440;
+          if (local_min < end_min_today) {
+            // We're before the end time (early morning), lights turn on at start_min yesterday
+            // but that's in the past, so show when they turn off
+            id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d",
+                                                       sunrise_h, 0).c_str());
+          } else {
+            // We're after the end time, lights turn on tomorrow
+            id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d tomorrow",
+                                                       sunrise_h, 0).c_str());
+          }
+        } else {
+          // Normal schedule (doesn't cross midnight)
+          if (local_min < start_min) {
+            // Before start time today
+            int on_hour = (start_min / 60) % 24;
+            int on_minute = start_min % 60;
+            id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d", on_hour, on_minute).c_str());
+          } else {
+            // After end time today, turns on tomorrow
+            int on_hour = (start_min / 60) % 24;
+            int on_minute = start_min % 60;
+            id(lights_status).publish_state(str_sprintf("OFF — turns ON at %02d:%02d tomorrow", on_hour, on_minute).c_str());
+          }
+        }
       }
 
       // ---- edge detection & one-shot transitions + logging ----
       static bool prev_on = false;
-      if (in_win != prev_on) {
-        // state changed
+      static int prev_sunrise_h = -1;
+      static float prev_light_hours = -1;
+
+      // Detect schedule changes
+      bool schedule_changed = (sunrise_h != prev_sunrise_h) ||
+                             (fabsf(id(light_hours).state - prev_light_hours) > 0.01);
+
+      if (schedule_changed) {
+        ESP_LOGI("shrooly", "Schedule changed: sunrise=%dh, duration=%.1fh, in_window=%s",
+                 sunrise_h, id(light_hours).state, in_win ? "YES" : "NO");
+        prev_sunrise_h = sunrise_h;
+        prev_light_hours = id(light_hours).state;
+
+        // When schedule changes, force evaluation regardless of prev_on state
+        if (in_win) {
+          ESP_LOGI("shrooly", "Schedule change puts us in window - turning lights ON");
+          prev_on = true;
+          id(lights_on_flag) = true;
+
+          // Turn on lights with transition
+          // White channel
+          auto w_on = id(white_led).turn_on();
+          w_on.set_brightness(id(white_intensity).state / 100.0f);
+          w_on.set_transition_length(2000);  // Faster transition for manual changes
+          w_on.perform();
+
+          // RGB channel
+          float r = id(color_r).state / 255.0f;
+          float g = id(color_g).state / 255.0f;
+          float b = id(color_b).state / 255.0f;
+          float maxc = std::max(r, std::max(g, b));
+          auto rgb_on = id(rgb_led_strip).turn_on();
+          if (maxc <= 0.0005f) {
+            rgb_on.set_brightness(0.0f);
+          } else {
+            rgb_on.set_rgb(r / maxc, g / maxc, b / maxc);
+            rgb_on.set_brightness(maxc);
+          }
+          rgb_on.set_transition_length(2000);
+          rgb_on.perform();
+
+          ESP_LOGI("shrooly", "Lights ON (schedule change) — white=%.0f%%, rgb=(%d,%d,%d)",
+                   id(white_intensity).state,
+                   (int) id(color_r).state, (int) id(color_g).state, (int) id(color_b).state);
+        } else if (!in_win) {
+          ESP_LOGI("shrooly", "Schedule change puts us out of window - turning lights OFF");
+          prev_on = false;
+          id(lights_on_flag) = false;
+
+          // Turn off lights
+          auto w_off = id(white_led).turn_off();
+          w_off.set_transition_length(2000);
+          w_off.perform();
+
+          auto rgb_off = id(rgb_led_strip).turn_off();
+          rgb_off.set_transition_length(2000);
+          rgb_off.perform();
+
+          ESP_LOGI("shrooly", "Lights OFF (schedule change)");
+        }
+      } else if (in_win != prev_on) {
+        // Normal time-based state change (not a schedule change)
         prev_on = in_win;
         id(lights_on_flag) = in_win;
 
