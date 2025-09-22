@@ -181,6 +181,8 @@ sensor:
     icon: mdi:thermometer
     id: temp_ha
     entity_category: "diagnostic"
+    device_class: temperature
+    state_class: measurement
     accuracy_decimals: 1
     unit_of_measurement: "°C"
     web_server:
@@ -193,12 +195,14 @@ sensor:
     icon: mdi:water-percent
     id: humidity_ha
     entity_category: "diagnostic"
+    device_class: humidity
+    state_class: measurement
     accuracy_decimals: 1
     unit_of_measurement: "%"
     web_server:
       sorting_group_id: grp_hidden
     filters:
-      - throttle: 30s
+      - throttle: 5s  # TEMPORARY: Changed from 30s for testing
 
   - platform: template
     name: "Air Exchange Fan Speed"
@@ -213,50 +217,3 @@ sensor:
     filters:
       - delta: 25.0
 
-  # =======================================================================
-  # Stabilized Current Humidity Sensor
-  # =======================================================================
-  # This sensor provides a stabilized humidity reading that compensates for
-  # artificial drops in humidity when the air exchange fan is running.
-  #
-  # Problem: When the air exchange fan turns on, it draws in drier outside air
-  # which causes the humidity sensor to report artificially low readings. This
-  # can cause the humidity control system to overcompensate by running the
-  # humidifier unnecessarily.
-  #
-  # Solution: This sensor "freezes" the humidity value at the last stable reading
-  # from before the fan started, and continues to report that frozen value while:
-  # 1. The air exchange fan is currently running (air_exchange_on_flag = true)
-  # 2. For 45 seconds after the fan stops (to allow air to settle and mix)
-  #
-  # After the 45-second settling period, the sensor resumes reporting live
-  # humidity values from the physical sensor. This provides more accurate
-  # humidity readings for control purposes during air exchange cycles.
-  # =======================================================================
-  - platform: template
-    name: "Stabilized Current Humidity"
-    icon: mdi:water-percent
-    id: humidity_stabilized
-    internal: true
-    accuracy_decimals: 1
-    unit_of_measurement: "%"
-    web_server:
-      sorting_group_id: grp_hidden
-    update_interval: 2s
-    lambda: |-
-      auto t = id(sntp_time).now();
-      int current_time = t.is_valid() ? t.timestamp : 0;
-
-      // Check if fan is currently on or recently stopped (within 45 seconds)
-      bool fan_affecting = id(air_exchange_on_flag) ||
-                           (id(fan_stopped_timestamp) > 0 &&
-                            current_time - id(fan_stopped_timestamp) < 45);
-
-      if (fan_affecting) {
-        // Return last stable value if fan is affecting readings
-        return id(last_stable_humidity);
-      } else {
-        // Update and return current humidity
-        id(last_stable_humidity) = id(humidity).state;
-        return id(humidity).state;
-      }

@@ -2,18 +2,20 @@
 # It turns the humidifier fan ON when humidity is below target,
 # and OFF when above, while updating a status sensor accordingly.
 # This is run every second when the new humidity value comes in
-#
-# Uses the stabilized humidity sensor to avoid false triggers during air exchange
 
 id: humidity_control_manager
 mode: queued
 then:
   - lambda: |-
-      if (!isnan(id(humidity_stabilized).state) && !isnan(id(target_humidity).state)) {
-        float h = id(humidity_stabilized).state;  // Use stabilized humidity
+      if (!isnan(id(humidity).state) && !isnan(id(target_humidity).state)) {
+        // Get the control mode
+        std::string mode = id(humidity_control_mode).state;
+
+        // Use raw humidity sensor value
+        float h = id(humidity).state;
         float t = id(target_humidity).state;
 
-        // Don't control humidifier if stabilized humidity is 0 (sensor not initialized)
+        // Don't control humidifier if humidity is 0 (sensor not initialized)
         if (h == 0.0f) {
           if (id(humidifier_on_flag)) {
             // Turn off if it was on
@@ -37,8 +39,28 @@ then:
           return;
         }
 
-        if (!id(humidifier_on_flag) && h < t - 2.0f) {
-          // Turn ON at target - 2%
+        // Control logic based on selected mode
+        bool should_turn_on = false;
+        bool should_turn_off = false;
+
+        if (mode == "Set-Point On/Off") {
+          // Mode 1: Simple on/off at set point
+          if (!id(humidifier_on_flag) && h < t) {
+            should_turn_on = true;
+          } else if (id(humidifier_on_flag) && h >= t) {
+            should_turn_off = true;
+          }
+        } else if (mode == "2% Hysteresis Band") {
+          // Mode 2: 2% hysteresis band (on at t-2%, off at t)
+          if (!id(humidifier_on_flag) && h < t - 2.0f) {
+            should_turn_on = true;
+          } else if (id(humidifier_on_flag) && h >= t) {
+            should_turn_off = true;
+          }
+        }
+
+        // Execute control actions
+        if (should_turn_on) {
           id(humidifier_on_flag) = true;
 
           // Start the PWM control script
@@ -47,8 +69,7 @@ then:
           // Schedule effectiveness check (it will save its own start humidity)
           id(humidifier_effectiveness_check).execute();
 
-        } else if (id(humidifier_on_flag) && h > t) {
-          // Turn OFF at target (hysteresis range: -2% to 0%)
+        } else if (should_turn_off) {
           id(humidifier_on_flag) = false;
 
           // Stop the PWM script immediately
@@ -65,34 +86,24 @@ then:
           delete device;
         }
 
-        // Always publish status showing actual humidity, but indicate when suppressed
-        auto time_now = id(sntp_time).now();
-        int current_time = time_now.is_valid() ? time_now.timestamp : 0;
-        bool fan_affecting = id(air_exchange_on_flag) ||
-                             (id(fan_stopped_timestamp) > 0 &&
-                              current_time - id(fan_stopped_timestamp) < 45);
-
+        // Always publish status showing actual humidity
         float actual_humidity = id(humidity).state;  // Show actual current humidity
 
+        // Create mode-specific status string
+        std::string mode_info = "";
+        if (mode == "Set-Point On/Off") {
+          mode_info = str_sprintf("(SP: %.1f%%)", t);
+        } else if (mode == "2% Hysteresis Band") {
+          mode_info = str_sprintf("(%.1f-%.1f%%)", t - 2.0f, t);
+        }
+
         if (id(humidifier_on_flag)) {
-          if (fan_affecting) {
-            id(humidifier_fan_status).publish_state(
-              str_sprintf("ON — humidity %.1f%% (suppressed)", actual_humidity).c_str()
-            );
-          } else {
-            id(humidifier_fan_status).publish_state(
-              str_sprintf("ON — humidity %.1f%% (target %.1f%%)", actual_humidity, t).c_str()
-            );
-          }
+          id(humidifier_fan_status).publish_state(
+            str_sprintf("ON — humidity %.1f%% %s", actual_humidity, mode_info.c_str()).c_str()
+          );
         } else {
-          if (fan_affecting) {
-            id(humidifier_fan_status).publish_state(
-              str_sprintf("OFF — humidity %.1f%% (suppressed)", actual_humidity).c_str()
-            );
-          } else {
-            id(humidifier_fan_status).publish_state(
-              str_sprintf("OFF — humidity %.1f%% (target %.1f%%)", actual_humidity, t).c_str()
-            );
-          }
+          id(humidifier_fan_status).publish_state(
+            str_sprintf("OFF — humidity %.1f%% %s", actual_humidity, mode_info.c_str()).c_str()
+          );
         }
       }

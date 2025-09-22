@@ -5,6 +5,7 @@ number:
     id: target_humidity
     name: "Target Humidity"
     unit_of_measurement: "%"
+    device_class: humidity
     icon: mdi:water-percent
     min_value: 30
     max_value: 100

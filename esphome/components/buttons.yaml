@@ -20,6 +20,28 @@ esp32_touch:
 
 # Button sensors
 binary_sensor:
+  # Humidifier state sensor for Home Assistant
+  - platform: template
+    id: humidifier_state
+    name: "Humidifier"
+    device_class: running
+    icon: mdi:air-humidifier
+    lambda: 'return id(humidifier_on_flag);'
+    web_server:
+      sorting_group_id: grp_humidity
+      sorting_weight: 0
+
+  # Air exchange fan state sensor for Home Assistant
+  - platform: template
+    id: air_exchange_state
+    name: "Air Exchange Fan"
+    device_class: running
+    icon: mdi:fan
+    lambda: 'return id(air_exchange_on_flag);'
+    web_server:
+      sorting_group_id: grp_air
+      sorting_weight: 0
+
   # Physical reset button
   - platform: gpio
     pin:

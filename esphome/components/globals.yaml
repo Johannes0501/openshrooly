@@ -64,17 +64,6 @@ globals:
     restore_value: no
     initial_value: '0'
 
-  # Variables for stabilized humidity sensor
-  - id: fan_stopped_timestamp
-    type: int
-    restore_value: no
-    initial_value: '0'
-
-  - id: last_stable_humidity
-    type: float
-    restore_value: no
-    initial_value: '0'
-
   # Variables for humidifier PWM control
   - id: humidifier_pwm_on_time
     type: int

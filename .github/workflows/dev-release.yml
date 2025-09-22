@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  VERSION: "2024.11.3"
+  VERSION: "latest"
 
 jobs:
   build:
@@ -32,9 +32,9 @@ jobs:
 
       - name: Prepare for GitHub build
         run: |
-          # Uncomment rmt_channel line for GitHub build (required for CI)
-          sed -i 's/^    #rmt_channel: 0/    rmt_channel: 0/' esphome/components/outputs.yaml
-          echo "Uncommented rmt_channel line in outputs.yaml for GitHub build"
+          # Ensure rmt_channel line is commented out for GitHub build
+          sed -i 's/^    rmt_channel: 0/    #rmt_channel: 0/' esphome/components/outputs.yaml
+          echo "Commented out rmt_channel line in outputs.yaml for GitHub build"
 
           # If this is a version tag (e.g., 0.4.0), update the version in openshrooly.yaml
           if [[ "${{ github.ref }}" == refs/tags/* ]] && [[ ! "${{ github.ref_name }}" == dev-* ]]; then
@@ -42,6 +42,7 @@ jobs:
             sed -i 's/^    version: .*/    version: ${{ github.ref_name }}/' esphome/openshrooly.yaml
             echo "Version updated to ${{ github.ref_name }}"
           fi
+
 
       - name: Build firmware (once)
         id: build

@@ -12,14 +12,6 @@ esphome:
   on_boot:
     priority: -10
     then:
-      # Trigger timezone setup from saved value
-      - lambda: |-
-          // The timezone on_value handler will set everything up
-          // Just trigger it with the restored value
-          ESP_LOGI("boot", "Restoring timezone: %s", id(timezone_select).state.c_str());
-          // Force the on_value handler to run with current value
-          id(timezone_select).publish_state(id(timezone_select).state);
-
       # Cancel any pending fan checks from previous boots
       - script.stop: fan_rpm_check
       - script.stop: fan_stop_check
@@ -56,7 +48,6 @@ esphome:
           condition:
             lambda: 'return !isnan(id(humidity).state);'
           timeout: 30s
-
 
       # Now run the humidity control manager
       - script.execute: humidity_control_manager
@@ -159,9 +150,9 @@ interval:
 
 <<: !include components/globals.yaml
 <<: !include components/calibration.yaml
+<<: !include components/selects.yaml
 <<: !include components/controls.yaml
 <<: !include components/time.yaml
-<<: !include components/timezone.yaml
 <<: !include components/communication.yaml
 <<: !include components/outputs.yaml
 <<: !include components/sensors.yaml
