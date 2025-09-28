@@ -1,33 +1,8 @@
 # ========================================================================
 # SIMPLE ALERTS CONFIGURATION
 # Basic alert system with LVGL display integration
+# NOTE: Global variables are defined in globals.yaml
 # ========================================================================
-
-# Global variables for alert tracking
-globals:
-  # Alert count for display
-  - id: active_alert_count
-    type: int
-    initial_value: '0'
-
-  # I2C failure tracking
-  - id: i2c_failure_count
-    type: int
-    initial_value: '0'
-
-  # Fan spinup failure flag
-  - id: fan_spinup_failure
-    type: bool
-    initial_value: 'false'
-
-  # Humidity effectiveness tracking
-  - id: humidifier_start_humidity
-    type: float
-    initial_value: '0.0'
-
-  - id: humidity_not_rising_flag
-    type: bool
-    initial_value: 'false'
 
 # Alert binary sensors for monitoring
 binary_sensor:
@@ -37,6 +12,9 @@ binary_sensor:
     name: "Alert: Humidity Control Failure"
     device_class: problem
     icon: mdi:water-off
+    internal: false  # Keep exposed to HA
+    web_server:
+      sorting_group_id: grp_hidden  # Hide from main web UI
     lambda: 'return id(humidity_not_rising_flag);'
 
   # I2C communication failure alert
@@ -45,6 +23,9 @@ binary_sensor:
     name: "Alert: I2C Communication Failure"
     device_class: problem
     icon: mdi:connection
+    internal: false  # Keep exposed to HA
+    web_server:
+      sorting_group_id: grp_hidden  # Hide from main web UI
     lambda: 'return id(i2c_failure_count) > 2;'
 
   # Fan spinup failure alert
@@ -53,27 +34,38 @@ binary_sensor:
     name: "Alert: Fan Start Failure"
     device_class: problem
     icon: mdi:fan-alert
+    internal: false  # Keep exposed to HA
+    web_server:
+      sorting_group_id: grp_hidden  # Hide from main web UI
     lambda: 'return id(fan_spinup_failure);'
 
-  # Temperature too low alert
+  # Temperature too low alert (uses dynamic threshold)
   - platform: template
     id: alert_temp_too_low
     name: "Alert: Temperature Too Low"
     device_class: cold
     icon: mdi:thermometer-low
+    internal: false  # Keep exposed to HA
+    web_server:
+      sorting_group_id: grp_hidden  # Hide from main web UI
     lambda: |-
       if (!id(temperature).has_state()) return false;
-      return id(temperature).state < 18.0;  // Alert if below 18°C
+      if (!id(temp_min_threshold).has_state()) return false;
+      return id(temperature).state < id(temp_min_threshold).state;
 
-  # Temperature too high alert
+  # Temperature too high alert (uses dynamic threshold)
   - platform: template
     id: alert_temp_too_high
     name: "Alert: Temperature Too High"
     device_class: heat
     icon: mdi:thermometer-high
+    internal: false  # Keep exposed to HA
+    web_server:
+      sorting_group_id: grp_hidden  # Hide from main web UI
     lambda: |-
       if (!id(temperature).has_state()) return false;
-      return id(temperature).state > 28.0;  // Alert if above 28°C
+      if (!id(temp_max_threshold).has_state()) return false;
+      return id(temperature).state > id(temp_max_threshold).state;
 
 # Text sensor showing active alerts
 text_sensor:
@@ -116,3 +108,71 @@ text_sensor:
       } else {
         return summary;
       }
+
+  # Touch button 1 (controlled by touch_button_monitor script via globals)
+  - platform: template
+    name: "Button 1"
+    icon: mdi:numeric-1-circle
+    id: button_1
+    internal: true  # Prevents sync to Home Assistant
+    lambda: 'return id(button_1_state);'
+    update_interval: 100ms  # Poll state every 100ms
+    web_server:
+      sorting_group_id: grp_extras
+    on_press:
+      - lambda: |-
+          ESP_LOGI("ui", "Button 1 pressed - calling ui_navigation_handler");
+      - script.execute:
+          id: ui_navigation_handler
+          button: 1
+
+  # Touch button 2 (controlled by touch_button_monitor script via globals)
+  - platform: template
+    name: "Button 2"
+    icon: mdi:numeric-2-circle
+    id: button_2
+    internal: true  # Prevents sync to Home Assistant
+    lambda: 'return id(button_2_state);'
+    update_interval: 100ms  # Poll state every 100ms
+    web_server:
+      sorting_group_id: grp_extras
+    on_press:
+      - lambda: |-
+          ESP_LOGI("ui", "Button 2 pressed - calling ui_navigation_handler");
+      - script.execute:
+          id: ui_navigation_handler
+          button: 2
+
+  # Touch button 3 (controlled by touch_button_monitor script via globals)
+  - platform: template
+    name: "Button 3"
+    icon: mdi:numeric-3-circle
+    id: button_3
+    internal: true  # Prevents sync to Home Assistant
+    lambda: 'return id(button_3_state);'
+    update_interval: 100ms  # Poll state every 100ms
+    web_server:
+      sorting_group_id: grp_extras
+    on_press:
+      - lambda: |-
+          ESP_LOGI("ui", "Button 3 pressed - calling ui_navigation_handler");
+      - script.execute:
+          id: ui_navigation_handler
+          button: 3
+
+  # Touch button 4 (controlled by touch_button_monitor script via globals)
+  - platform: template
+    name: "Button 4"
+    icon: mdi:numeric-4-circle
+    id: button_4
+    internal: true  # Prevents sync to Home Assistant
+    lambda: 'return id(button_4_state);'
+    update_interval: 100ms  # Poll state every 100ms
+    web_server:
+      sorting_group_id: grp_extras
+    on_press:
+      - lambda: |-
+          ESP_LOGI("ui", "Button 4 pressed - calling ui_navigation_handler");
+      - script.execute:
+          id: ui_navigation_handler
+          button: 4

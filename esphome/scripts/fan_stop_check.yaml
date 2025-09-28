@@ -3,9 +3,9 @@
 # Checks fan has stopped exactly 10 seconds after being called
 # ========================================================================
 
-id: fan_stop_check
-mode: restart
-then:
+- id: fan_stop_check
+  mode: restart
+  then:
   - delay: 10s
   - lambda: |-
       if (!id(air_exchange_on_flag)) {

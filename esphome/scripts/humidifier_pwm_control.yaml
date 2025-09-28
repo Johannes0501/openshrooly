@@ -4,9 +4,9 @@
 # Duty cycle is based on the humidifier_speed setting (50-100%)
 # ========================================================================
 
-id: humidifier_pwm_control
-mode: restart
-then:
+- id: humidifier_pwm_control
+  mode: restart
+  then:
   - while:
       condition:
         lambda: 'return id(humidifier_on_flag);'

@@ -17,7 +17,8 @@ sensor:
       icon: mdi:thermometer
       internal: true
       web_server:
-        sorting_group_id: grp_env
+        sorting_group_id: grp_temperature
+        sorting_weight: 5
       filters:
         - sliding_window_moving_average:
             window_size: 2
@@ -37,7 +38,8 @@ sensor:
       icon: mdi:water-percent
       internal: true
       web_server:
-        sorting_group_id: grp_env
+        sorting_group_id: grp_humidity
+        sorting_weight: 1
       filters:
         - sliding_window_moving_average:
             window_size: 2
@@ -71,7 +73,8 @@ sensor:
     unit_of_measurement: "RPM"
     accuracy_decimals: 0
     web_server:
-      sorting_group_id: grp_env
+      sorting_group_id: grp_air
+      sorting_weight: 30
     filters:
       - multiply: 0.5
       - sliding_window_moving_average:
@@ -146,7 +149,7 @@ sensor:
     accuracy_decimals: 0
     update_interval: never  # Will be updated by interval
     web_server:
-      sorting_group_id: grp_env
+      sorting_group_id: grp_humidity
       sorting_weight: 30
     lambda: |-
       return {};
@@ -219,4 +222,5 @@ sensor:
       sorting_weight: 40
     filters:
       - delta: 25.0
+
 

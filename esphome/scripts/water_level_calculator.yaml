@@ -3,9 +3,9 @@
 # Calculates water level percentage from capacitive sensors
 # ========================================================================
 
-id: water_level_calculator
-mode: single
-then:
+- id: water_level_calculator
+  mode: single
+  then:
   - lambda: |-
       // Moving average buffer for smoothing
       static float readings[5] = {0};

@@ -3,9 +3,9 @@
 # Checks humidity increase exactly 2 minutes after being called
 # ========================================================================
 
-id: humidifier_effectiveness_check
-mode: restart
-then:
+- id: humidifier_effectiveness_check
+  mode: restart
+  then:
   - lambda: |-
       // Save current humidity as start value before delay
       id(humidifier_start_humidity) = id(humidity).state;

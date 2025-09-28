@@ -1,121 +1,26 @@
 # ========================================================================
-# BUTTONS CONFIGURATION WITH DYNAMIC BASELINE
-# Physical and touch button inputs with adaptive thresholds
+# BUTTON CONFIGURATION
+# Touch capacitive buttons and their hardware sensors
+# NOTE: Button binary sensors moved to alerts_simple.yaml to avoid duplicate sections
 # ========================================================================
 
-# Touch sensor configuration
+button:
+  # Regular Action Button
+  - platform: restart
+    id: restart_button
+    name: "Restart OpenShrooly"
+    entity_category: diagnostic
+
+# I2C configuration (Bus A - for capacitive touch inputs)
+i2c:
+  - id: bus_a
+    sda: GPIO3
+    scl: GPIO4
+    scan: true
+    frequency: 100kHz
+
+# Touch Capacitive Sensors (AT42QT1010 chips)
 esp32_touch:
-  id: esp32_touch_id
-  measurement_duration: 0.25ms  # Much lower than the 8ms default
-  sleep_duration: 0.5ms
-  filter_mode: IIR_16     # Moderate filtering for stability
-  debounce_count: 2       # Require 3 consecutive readings to change state
-  noise_threshold: 2      # Medium noise resistance
-  jitter_step: 4          # Small jitter filter
-  smooth_mode: IIR_2      # Light smoothing
-  denoise_grade: BIT8     # Medium denoise precision
-  denoise_cap_level: L3   # Medium reference capacitance
-  # Enable debug logging to see actual touch values
-  setup_mode: false       # Set true to see raw values during calibration
+  setup_mode: false
 
-# Button sensors
-binary_sensor:
-  # Humidifier state sensor for Home Assistant
-  - platform: template
-    id: humidifier_state
-    name: "Humidifier"
-    device_class: running
-    icon: mdi:air-humidifier
-    lambda: 'return id(humidifier_on_flag);'
-    web_server:
-      sorting_group_id: grp_humidity
-      sorting_weight: 0
-
-  # Air exchange fan state sensor for Home Assistant
-  - platform: template
-    id: air_exchange_state
-    name: "Air Exchange Fan"
-    device_class: running
-    icon: mdi:fan
-    lambda: 'return id(air_exchange_on_flag);'
-    web_server:
-      sorting_group_id: grp_air
-      sorting_weight: 0
-
-  # Physical reset button
-  - platform: gpio
-    pin:
-      number: GPIO5
-      mode: INPUT_PULLUP
-      inverted: true
-    name: "Reset button"
-    icon: mdi:restart
-    web_server:
-      sorting_group_id: grp_hidden
-    on_click:
-      # Long press (5-60 seconds) triggers factory reset
-      - min_length: 5s
-        max_length: 60s
-        then:
-          - rtttl.play: "beep:d=4,o=5,b=120:16a"
-          - lambda: |-
-
-              id(my_display).fill(COLOR_OFF);
-              id(my_display).print(30, 60, id(font1), "Factory Reset...");
-              id(my_display).print(30, 80, id(font1), "Please wait...");
-              id(my_display).update();
-          - delay: 2s
-          - switch.turn_on: do_factory_reset
-
-
-  # Touch button 1 (controlled by touch_button_monitor script)
-  - platform: template
-    name: "Button 1"
-    icon: mdi:numeric-1-circle
-    id: button_1
-    internal: true  # Prevents sync to Home Assistant
-    web_server:
-      sorting_group_id: grp_extras
-    on_press:
-      - script.execute:
-          id: ui_navigation_handler
-          button: 1
-
-  # Touch button 2 (controlled by touch_button_monitor script)
-  - platform: template
-    name: "Button 2"
-    icon: mdi:numeric-2-circle
-    id: button_2
-    internal: true  # Prevents sync to Home Assistant
-    web_server:
-      sorting_group_id: grp_extras
-    on_press:
-      - script.execute:
-          id: ui_navigation_handler
-          button: 2
-
-  # Touch button 3 (controlled by touch_button_monitor script)
-  - platform: template
-    name: "Button 3"
-    icon: mdi:numeric-3-circle
-    id: button_3
-    internal: true  # Prevents sync to Home Assistant
-    web_server:
-      sorting_group_id: grp_extras
-    on_press:
-      - script.execute:
-          id: ui_navigation_handler
-          button: 3
-
-  # Touch button 4 (controlled by touch_button_monitor script)
-  - platform: template
-    name: "Button 4"
-    icon: mdi:numeric-4-circle
-    id: button_4
-    internal: true  # Prevents sync to Home Assistant
-    web_server:
-      sorting_group_id: grp_extras
-    on_press:
-      - script.execute:
-          id: ui_navigation_handler
-          button: 4
+# NOTE: Touch sensors moved to sensors.yaml to avoid duplicate sensor: sections

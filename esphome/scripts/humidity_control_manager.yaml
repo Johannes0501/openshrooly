@@ -3,9 +3,9 @@
 # and OFF when above, while updating a status sensor accordingly.
 # This is run every second when the new humidity value comes in
 
-id: humidity_control_manager
-mode: queued
-then:
+- id: humidity_control_manager
+  mode: queued
+  then:
   - lambda: |-
       if (!isnan(id(humidity).state) && !isnan(id(target_humidity).state)) {
         // Get the control mode

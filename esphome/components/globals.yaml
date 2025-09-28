@@ -1,5 +1,25 @@
 
 globals:
+  - id: menu_selection
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: humidity_selection
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: edit_mode
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: page_just_changed
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
   - id: lights_on_flag
     type: bool
     restore_value: yes
@@ -74,3 +94,58 @@ globals:
     type: int
     restore_value: no
     initial_value: '250'
+
+  # Alert tracking globals
+  - id: active_alert_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: i2c_failure_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: fan_spinup_failure
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: humidity_not_rising_flag
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: last_sht41_reading_time
+    type: unsigned long
+    initial_value: '0'
+
+  # UI globals
+  - id: current_ui_page
+    type: int
+    initial_value: '0'
+
+  - id: last_button_press_time
+    type: unsigned long
+    initial_value: '0'
+
+  - id: ui_needs_update
+    type: bool
+    initial_value: 'true'
+
+  # Button state globals for touch monitoring
+  - id: button_1_state
+    type: bool
+    initial_value: 'false'
+
+  - id: button_2_state
+    type: bool
+    initial_value: 'false'
+
+  - id: button_3_state
+    type: bool
+    initial_value: 'false'
+
+  - id: button_4_state
+    type: bool
+    initial_value: 'false'

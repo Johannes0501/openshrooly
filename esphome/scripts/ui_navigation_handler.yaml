@@ -1,31 +1,231 @@
 # ========================================================================
-# UI NAVIGATION HANDLER SCRIPT
-# Handles button presses for UI navigation
+# UI NAVIGATION HANDLER
+# Context-aware navigation for the new screen structure
 # ========================================================================
 
-id: ui_navigation_handler
-mode: restart
-parameters:
-  button: int
-then:
-  - lambda: |-
-      ESP_LOGI("ui", "Button %d pressed", button);
+- id: ui_navigation_handler
+  mode: restart
+  parameters:
+    button: int
+  then:
+    - lambda: |-
+        ESP_LOGI("ui", "Button %d pressed", button);
 
-      // For now, just log button presses
-      // Future: Navigate between LVGL pages/screens
-      switch(button) {
-        case 1:
-          ESP_LOGI("ui", "Button 1: Main screen");
-          break;
-        case 2:
-          ESP_LOGI("ui", "Button 2: Settings");
-          break;
-        case 3:
-          ESP_LOGI("ui", "Button 3: Alerts");
-          break;
-        case 4:
-          ESP_LOGI("ui", "Button 4: Status");
-          break;
-        default:
-          ESP_LOGI("ui", "Unknown button: %d", button);
-      }
+    # Main page navigation
+    - if:
+        condition:
+          lambda: 'return id(aaaa).is_showing() && button == 4;'
+        then:
+          - lambda: |-
+              ESP_LOGI("ui", "Navigating to settings menu");
+              id(menu_selection) = 0;  // Reset menu selection
+          - lvgl.page.show: bsettingsmenu
+          # Update menu display to show first item selected
+          - lvgl.label.update:
+              id: menu_temp_item
+              text: "> Temperature"
+          - lvgl.label.update:
+              id: menu_humidity_item
+              text: "  Humidity"
+          - lvgl.label.update:
+              id: menu_light_item
+              text: "  Light"
+          - lvgl.label.update:
+              id: menu_air_item
+              text: "  Air Exchange"
+          - lvgl.label.update:
+              id: menu_system_item
+              text: "  System Info"
+          - delay: 25ms
+          - component.update: my_display
+        else:
+          # Only process other pages if we didn't just handle main page
+          - if:
+              condition:
+                lambda: 'return id(bsettingsmenu).is_showing();'
+              then:
+                # Settings menu page navigation
+                - lambda: |-
+                    if (button == 1) {  // Back to main
+                      ESP_LOGI("ui", "Back to main");
+                      id(menu_selection) = 0;  // Reset on back
+                    } else if (button == 2) {  // Up
+                      if (id(menu_selection) > 0) {
+                        id(menu_selection)--;
+                        ESP_LOGI("ui", "Menu up: %d", id(menu_selection));
+                      }
+                    } else if (button == 3) {  // Down
+                      if (id(menu_selection) < 4) {
+                        id(menu_selection)++;
+                        ESP_LOGI("ui", "Menu down: %d", id(menu_selection));
+                      }
+                    } else if (button == 4) {  // Select
+                      ESP_LOGI("ui", "Selecting menu item: %d", id(menu_selection));
+                    }
+
+                # Update menu display based on selection
+                - lvgl.label.update:
+                    id: menu_temp_item
+                    text: !lambda |-
+                      return std::string(id(menu_selection) == 0 ? "> Temperature" : "  Temperature");
+                - lvgl.label.update:
+                    id: menu_humidity_item
+                    text: !lambda |-
+                      return std::string(id(menu_selection) == 1 ? "> Humidity" : "  Humidity");
+                - lvgl.label.update:
+                    id: menu_light_item
+                    text: !lambda |-
+                      return std::string(id(menu_selection) == 2 ? "> Light" : "  Light");
+                - lvgl.label.update:
+                    id: menu_air_item
+                    text: !lambda |-
+                      return std::string(id(menu_selection) == 3 ? "> Air Exchange" : "  Air Exchange");
+                - lvgl.label.update:
+                    id: menu_system_item
+                    text: !lambda |-
+                      return std::string(id(menu_selection) == 4 ? "> System Info" : "  System Info");
+
+                # Handle navigation
+                - if:
+                    condition:
+                      lambda: 'return button == 1;'  # Back
+                    then:
+                      - lvgl.page.show: aaaa
+                      - delay: 25ms
+                      - component.update: my_display
+
+                - if:
+                    condition:
+                      lambda: 'return button == 4;'  # Select
+                    then:
+                      - if:
+                          condition:
+                            lambda: 'return id(menu_selection) == 0;'
+                          then:
+                            - lvgl.page.show: ctempsettings
+                      - if:
+                          condition:
+                            lambda: 'return id(menu_selection) == 1;'
+                          then:
+                            - lvgl.page.show: dhumiditysettings
+                      - if:
+                          condition:
+                            lambda: 'return id(menu_selection) == 2;'
+                          then:
+                            - lvgl.page.show: elightsettings
+                      - if:
+                          condition:
+                            lambda: 'return id(menu_selection) == 3;'
+                          then:
+                            - lvgl.page.show: fairsettings
+                      - if:
+                          condition:
+                            lambda: 'return id(menu_selection) == 4;'
+                          then:
+                            - lvgl.page.show: aaaa
+                      - delay: 25ms
+                      - component.update: my_display
+
+          - if:
+              condition:
+                lambda: 'return id(dhumiditysettings).is_showing();'
+              then:
+                # Humidity settings page navigation
+                - lambda: |-
+                    if (button == 1) {  // Back
+                      if (id(edit_mode)) {
+                        // Cancel edit mode
+                        id(edit_mode) = false;
+                        ESP_LOGI("ui", "Cancelled edit mode");
+                      } else {
+                        // Go back to settings menu
+                        id(humidity_selection) = 0;
+                      }
+                    } else if (button == 2) {  // Up
+                      if (id(edit_mode)) {
+                        // Increase value
+                        ESP_LOGI("ui", "Increase value");
+                      } else {
+                        // Move selection up
+                        if (id(humidity_selection) > 0) {
+                          id(humidity_selection)--;
+                          ESP_LOGI("ui", "Selection up: %d", id(humidity_selection));
+                        }
+                      }
+                    } else if (button == 3) {  // Down
+                      if (id(edit_mode)) {
+                        // Decrease value
+                        ESP_LOGI("ui", "Decrease value");
+                      } else {
+                        // Move selection down
+                        if (id(humidity_selection) < 2) {  // 3 items: target, mode, speed
+                          id(humidity_selection)++;
+                          ESP_LOGI("ui", "Selection down: %d", id(humidity_selection));
+                        }
+                      }
+                    } else if (button == 4) {  // Select/Accept
+                      if (id(edit_mode)) {
+                        // Accept changes
+                        id(edit_mode) = false;
+                        ESP_LOGI("ui", "Accepted changes");
+                      } else {
+                        // Enter edit mode
+                        id(edit_mode) = true;
+                        ESP_LOGI("ui", "Entered edit mode for item %d", id(humidity_selection));
+                      }
+                    }
+
+                # Update carat indicators
+                - lvgl.label.update:
+                    id: humidity_target_carat
+                    text: !lambda |-
+                      return std::string(id(humidity_selection) == 0 ? ">" : " ");
+                - lvgl.label.update:
+                    id: humidity_mode_carat
+                    text: !lambda |-
+                      return std::string(id(humidity_selection) == 1 ? ">" : " ");
+                - lvgl.label.update:
+                    id: humidity_speed_carat
+                    text: !lambda |-
+                      return std::string(id(humidity_selection) == 2 ? ">" : " ");
+
+                # Update button labels based on edit mode
+                - lvgl.label.update:
+                    id: humidity_btn2_label
+                    text: !lambda |-
+                      return std::string(id(edit_mode) ? "+" : "Up");
+                - lvgl.label.update:
+                    id: humidity_btn3_label
+                    text: !lambda |-
+                      return std::string(id(edit_mode) ? "-" : "Down");
+
+                # Update edit indicator
+                - lvgl.label.update:
+                    id: humidity_edit_indicator
+                    text: !lambda |-
+                      return std::string(id(edit_mode) ? "[EDITING]" : " ");
+
+                # Back to menu if button 1 and not in edit mode
+                - if:
+                    condition:
+                      lambda: 'return button == 1 && !id(edit_mode);'
+                    then:
+                      - lvgl.page.show: bsettingsmenu
+                      - delay: 25ms
+                      - component.update: my_display
+
+          # Other settings pages - handle back button
+          - if:
+              condition:
+                lambda: |-
+                  return (id(ctempsettings).is_showing() ||
+                          id(elightsettings).is_showing() ||
+                          id(fairsettings).is_showing()) && button == 1;
+              then:
+                - lvgl.page.show: bsettingsmenu
+                - delay: 25ms
+                - component.update: my_display
+
+          # Final display update for non-navigation changes
+          - delay: 25ms
+          - component.update: my_display

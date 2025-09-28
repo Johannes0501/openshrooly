@@ -3,9 +3,9 @@
 # Checks fan RPM exactly 10 seconds after being called
 # ========================================================================
 
-id: fan_rpm_check
-mode: restart
-then:
+- id: fan_rpm_check
+  mode: restart
+  then:
   - delay: 10s
   - lambda: |-
       // Only check if fan is actually supposed to be on

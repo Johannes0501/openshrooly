@@ -1,6 +1,6 @@
-id: touch_button_monitor
-mode: restart
-then:
+- id: touch_button_monitor
+  mode: restart
+  then:
   - while:
       condition:
         lambda: 'return true;'  # Run forever
@@ -52,20 +52,28 @@ then:
 
                 // Trigger the button press and play unique beep
                 if (btn == 0) {
-                  id(button_1).publish_state(true);
+                  id(button_1_state) = true;
                   id(buzzer).play("b1:d=32,o=5,b=240:c");  // C note
+                  // Directly call UI handler
+                  id(ui_navigation_handler).execute(1);
                 }
                 else if (btn == 1) {
-                  id(button_2).publish_state(true);
+                  id(button_2_state) = true;
                   id(buzzer).play("b2:d=32,o=5,b=240:e");  // E note
+                  // Directly call UI handler
+                  id(ui_navigation_handler).execute(2);
                 }
                 else if (btn == 2) {
-                  id(button_3).publish_state(true);
+                  id(button_3_state) = true;
                   id(buzzer).play("b3:d=32,o=5,b=240:g");  // G note
+                  // Directly call UI handler
+                  id(ui_navigation_handler).execute(3);
                 }
                 else if (btn == 3) {
-                  id(button_4).publish_state(true);
+                  id(button_4_state) = true;
                   id(buzzer).play("b4:d=32,o=6,b=240:c");  // High C note (octave 6)
+                  // Directly call UI handler
+                  id(ui_navigation_handler).execute(4);
                 }
 
               } else if (button_pressed[btn]) {
@@ -95,10 +103,10 @@ then:
                   pressed_log_counter[btn] = 0;  // Reset counter
 
                   // Trigger the button release
-                  if (btn == 0) id(button_1).publish_state(false);
-                  else if (btn == 1) id(button_2).publish_state(false);
-                  else if (btn == 2) id(button_3).publish_state(false);
-                  else if (btn == 3) id(button_4).publish_state(false);
+                  if (btn == 0) id(button_1_state) = false;
+                  else if (btn == 1) id(button_2_state) = false;
+                  else if (btn == 2) id(button_3_state) = false;
+                  else if (btn == 3) id(button_4_state) = false;
                 }
               }
 
@@ -127,4 +135,4 @@ then:
               last_value[btn] = value;
             }  // End of button loop
 
-        - delay: 200ms  # Poll every 200ms
+        - delay: 100ms  # Poll every 100ms

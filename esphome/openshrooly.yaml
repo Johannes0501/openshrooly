@@ -1,10 +1,13 @@
+substitutions:
+  device_version: "0.4.3"
+
 esphome:
   name: openshrooly
   name_add_mac_suffix: true
   friendly_name: OpenShrooly
   project:
     name: grahamsz.openshrooly
-    version: 0.4.1
+    version: ${device_version}
   platformio_options:
     build_flags:
       - -Wno-cpp  # Suppress preprocessor warnings (including deprecation warnings)
@@ -23,8 +26,16 @@ esphome:
       - lambda: |-
           ESP_LOGI("boot", "LVGL should initialize now with main page...");
 
+      # Force main page to show after LVGL initializes
+      - delay: 200ms
+      - lambda: |-
+          ESP_LOGI("boot", "Forcing main page display...");
+      - lvgl.page.show: aaaa
+      - delay: 100ms  # Small delay between page show and update
+      - component.update: my_display
+
       # Continue with normal boot sequence after a bit
-      - delay: 2s
+      - delay: 1s
       - script.stop: fan_rpm_check
       - script.stop: fan_stop_check
       - script.execute: air_exchange_manager
@@ -46,13 +57,7 @@ esp32:
 
 logger:
   level: INFO
-#  logs:
-    # Suppress component timing warnings
-    #component: ERROR  # Only show errors, not warnings about timing
-    #safe_mode: ERROR  # Suppress safe_mode timing warnings
-    # Optionally suppress other noisy components
-    # sensor: WARN  # Reduce sensor logging
-    # time: WARN    # Reduce time sync logging
+
 
 api:
   reboot_timeout: 0s
@@ -84,11 +89,7 @@ captive_portal:
 # Include text sensors early so scripts can reference them
 <<: !include components/text_sensors.yaml
 
-# All scripts are in the scripts/ directory
-# Each file must contain either:
-#   - A single script definition (id: xxx, mode: xxx, then: xxx)
-#   - Or a list of script definitions (- id: xxx...)
-script: !include_dir_merge_list scripts/
+# Scripts will be loaded after components to ensure all IDs are available
 
 interval:
   # Water level check interval (every 30 seconds)
@@ -118,64 +119,77 @@ interval:
   # Update LVGL labels every 10 seconds
   - interval: 10s
     then:
+      # Update main screen value labels
       - lvgl.label.update:
-          id: temp_label
+          id: main_temp_value
           text: !lambda |-
             if (id(temperature).has_state()) {
               char str[20];
-              sprintf(str, "Temp: %.1f°C", id(temperature).state);
+              sprintf(str, "%.1f°C", id(temperature).state);
               return std::string(str);
             }
-            return std::string("Temp: --.-°C");
+            return std::string("--.-°C");
 
       - lvgl.label.update:
-          id: humidity_label
+          id: main_humidity_value
           text: !lambda |-
             if (id(humidity).has_state()) {
               char str[20];
-              sprintf(str, "Humidity: %.1f%%", id(humidity).state);
+              sprintf(str, "%.1f%%", id(humidity).state);
               return std::string(str);
             }
-            return std::string("Humidity: --.-%");
+            return std::string("--.-%");
 
       - lvgl.label.update:
-          id: fan_label
+          id: main_water_value
+          text: !lambda |-
+            if (id(water_level_percent).has_state()) {
+              char str[20];
+              sprintf(str, "%.0f%%", id(water_level_percent).state);
+              return std::string(str);
+            }
+            return std::string("---%");
+
+      - lvgl.label.update:
+          id: main_fan_value
           text: !lambda |-
             if (id(air_exchange_on_flag)) {
-              return std::string("Fan: ON");
+              return std::string("ON");
             } else {
-              return std::string("Fan: OFF");
+              return std::string("OFF");
             }
 
       - lvgl.label.update:
-          id: humidifier_label
-          text: !lambda |-
-            if (id(humidifier_on_flag)) {
-              return std::string("Humidifier: ON");
-            } else {
-              return std::string("Humidifier: OFF");
-            }
-
-      - lvgl.label.update:
-          id: light_label
+          id: main_light_value
           text: !lambda |-
             if (id(lights_on_flag)) {
-              return std::string("Light: ON");
+              char str[20];
+              sprintf(str, "%.0f lux", id(white_intensity).state);
+              return std::string(str);
             } else {
-              return std::string("Light: OFF");
+              return std::string("OFF");
             }
 
       - lvgl.label.update:
-          id: wifi_label
+          id: main_wifi_value
           text: !lambda |-
             if (WiFi.isConnected()) {
-              return std::string("WiFi: Connected");
+              return std::string("Connected");
             } else {
-              return std::string("WiFi: AP Mode");
+              return std::string("AP Mode");
             }
 
       - lvgl.label.update:
-          id: time_label
+          id: main_ip_value
+          text: !lambda |-
+            if (WiFi.isConnected()) {
+              return WiFi.localIP().toString().c_str();
+            } else {
+              return std::string("192.168.4.1");
+            }
+
+      - lvgl.label.update:
+          id: main_time_label
           text: !lambda |-
             auto time = id(sntp_time).now();
             if (time.is_valid()) {
@@ -186,29 +200,25 @@ interval:
             return std::string("00:00");
 
       - lvgl.label.update:
-          id: alert_label
+          id: main_uptime_value
           text: !lambda |-
-            int count = id(active_alert_count);
-            if (count == 0) {
-              return std::string("No Alerts");
-            } else if (count == 1) {
-              return std::string("⚠️ 1 Alert");
-            } else {
-              char str[20];
-              sprintf(str, "⚠️ %d Alerts", count);
-              return std::string(str);
-            }
+            uint32_t uptime_sec = millis() / 1000;
+            uint32_t hours = uptime_sec / 3600;
+            uint32_t minutes = (uptime_sec % 3600) / 60;
+            char str[20];
+            sprintf(str, "%dh %dm", hours, minutes);
+            return std::string(str);
 
       # Force display update
       - component.update: my_display
 
-  - interval: 5min
-    then:
-      - component.update: my_display
-
 
 <<: !include components/globals.yaml
-<<: !include components/ui_globals.yaml
+<<: !include components/alerts_simple.yaml
+
+# Scripts loaded immediately after alerts to ensure button IDs are available
+script: !include_dir_merge_list scripts/
+
 <<: !include components/calibration.yaml
 <<: !include components/selects.yaml
 <<: !include components/controls.yaml
@@ -218,8 +228,7 @@ interval:
 <<: !include components/sensors.yaml
 <<: !include components/display.yaml
 <<: !include components/buttons.yaml
-<<: !include components/alerts_simple.yaml
-<<: !include components/lvgl_simple.yaml
+<<: !include components/lvgl_config.yaml
 <<: !include components/webserver.yaml
 
 

@@ -1,6 +1,6 @@
-id: air_exchange_manager
-mode: restart
-then:
+- id: air_exchange_manager
+  mode: restart
+  then:
   - while:
       condition:
         lambda: 'return true;'
