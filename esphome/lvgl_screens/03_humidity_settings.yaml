@@ -1,0 +1,162 @@
+# ========================================================================
+# HUMIDITY SETTINGS SCREEN
+# Configure humidity target and control parameters
+# ========================================================================
+
+- id: dhumiditysettings
+  bg_color: paper_white
+  widgets:
+    # Title
+    - label:
+        text: "Humidity Settings"
+        align: TOP_MID
+        y: 2
+        text_font: font1
+
+    # Current humidity display
+    - label:
+        id: humidity_current_label
+        text: "Current: --.-%"
+        align: TOP_LEFT
+        x: 10
+        y: 18
+        text_font: font1
+
+    # Water level display
+    - label:
+        id: humidity_water_label
+        text: "Water: ---%"
+        align: TOP_RIGHT
+        x: -10
+        y: 18
+        text_font: font1
+
+    # Target humidity setting
+    - label:
+        id: humidity_target_carat
+        text: ">"
+        align: TOP_LEFT
+        x: 5
+        y: 33
+        text_font: font1
+    - label:
+        text: "Target:"
+        align: TOP_LEFT
+        x: 15
+        y: 33
+        text_font: font1
+    - label:
+        id: humidity_target_value_label
+        text: "--.-%"
+        align: TOP_RIGHT
+        x: -10
+        y: 33
+        text_font: font1
+
+    # Control mode setting
+    - label:
+        id: humidity_mode_carat
+        text: " "
+        align: TOP_LEFT
+        x: 5
+        y: 48
+        text_font: font1
+    - label:
+        text: "Mode:"
+        align: TOP_LEFT
+        x: 15
+        y: 48
+        text_font: font1
+    - label:
+        id: humidity_mode_value_label
+        text: "2% Hysteresis"
+        align: TOP_RIGHT
+        x: -10
+        y: 48
+        text_font: font1
+
+    # Humidifier speed setting
+    - label:
+        id: humidity_speed_carat
+        text: " "
+        align: TOP_LEFT
+        x: 5
+        y: 63
+        text_font: font1
+    - label:
+        text: "Speed:"
+        align: TOP_LEFT
+        x: 15
+        y: 63
+        text_font: font1
+    - label:
+        id: humidity_speed_value_label
+        text: "---%"
+        align: TOP_RIGHT
+        x: -10
+        y: 63
+        text_font: font1
+
+    # Edit mode indicator
+    - label:
+        id: humidity_edit_indicator
+        text: " "
+        align: TOP_LEFT
+        x: 10
+        y: 80
+        text_font: font1
+
+    # Button Bar - Navigation buttons (20px tall, no borders)
+    - obj:
+        x: 0
+        y: 107
+        width: 73
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              text: "Back"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1
+
+    - obj:
+        x: 75
+        y: 107
+        width: 73
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              id: humidity_btn2_label
+              text: "-"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1
+
+    - obj:
+        x: 150
+        y: 107
+        width: 73
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              id: humidity_btn3_label
+              text: "+"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1
+
+    - obj:
+        x: 225
+        y: 107
+        width: 71
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              text: "Next"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1

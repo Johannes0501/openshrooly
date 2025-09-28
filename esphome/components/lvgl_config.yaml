@@ -1,0 +1,49 @@
+# ========================================================================
+# LVGL CONFIGURATION
+# Main LVGL setup including all screens
+# ========================================================================
+
+# Define inverted colors for e-paper
+color:
+  - id: paper_white  # Shows as white on e-paper (actually black in memory)
+    hex: "000000"
+  - id: paper_black  # Shows as black on e-paper (actually white in memory)
+    hex: "FFFFFF"
+
+# Define the Spleen font for LVGL
+font:
+  - file: 'fonts/spleen-6x12.bdf'
+    id: font1
+    bpp: 1  # 1 bit per pixel for monochrome
+
+# LVGL Configuration
+lvgl:
+  displays:
+    - my_display
+
+  # Buffer settings - reduced to save memory
+  buffer_size: 25%
+
+  # Background color (use black which appears white on inverted display)
+  bg_color: paper_white
+
+  # Theme for inverted e-paper
+  theme:
+    label:
+      text_color: paper_black
+      text_font: font1
+
+  # Log level for LVGL - disabled to reduce log noise
+  log_level: NONE
+
+  # Show aaaa page when LVGL is ready
+  on_ready:
+    - lambda: |-
+        ESP_LOGI("lvgl", "LVGL ready, showing aaaa page");
+    - delay: 100ms  # Reduced from 500ms for faster response
+    - lvgl.page.show: aaaa
+    - delay: 100ms  # Small delay between page show and update
+    - component.update: my_display
+
+  # Include all screen definitions
+  pages: !include_dir_merge_list ../lvgl_screens/

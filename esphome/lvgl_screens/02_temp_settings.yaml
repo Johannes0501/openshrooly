@@ -1,0 +1,129 @@
+# ========================================================================
+# TEMPERATURE SETTINGS SCREEN
+# Configure temperature thresholds
+# ========================================================================
+
+- id: ctempsettings
+  bg_color: paper_white
+  widgets:
+    # Title
+    - label:
+        text: "Temperature Settings"
+        align: TOP_MID
+        y: 2
+        text_font: font1
+
+    # Current temperature display
+    - label:
+        id: temp_current_label
+        text: "Current: --.-°C"
+        align: TOP_LEFT
+        x: 10
+        y: 20
+        text_font: font1
+
+    # Minimum temperature setting
+    - obj:
+        id: temp_min_container
+        x: 10
+        y: 35
+        width: 276
+        height: 20
+        bg_color: paper_white
+        widgets:
+          - label:
+              text: "Min Temp:"
+              align: LEFT_MID
+              x: 0
+              text_font: font1
+          - label:
+              id: temp_min_value_label
+              text: "--.-°C"
+              align: RIGHT_MID
+              x: -10
+              text_font: font1
+
+    # Maximum temperature setting
+    - obj:
+        id: temp_max_container
+        x: 10
+        y: 57
+        width: 276
+        height: 20
+        bg_color: paper_white
+        widgets:
+          - label:
+              text: "Max Temp:"
+              align: LEFT_MID
+              x: 0
+              text_font: font1
+          - label:
+              id: temp_max_value_label
+              text: "--.-°C"
+              align: RIGHT_MID
+              x: -10
+              text_font: font1
+
+    # Selection indicator
+    - obj:
+        id: temp_selection_box
+        x: 8
+        y: 35
+        width: 280
+        height: 22
+        border_width: 2
+        border_color: paper_black
+        bg_opa: 0%
+
+    # Button Bar - Navigation buttons (20px tall, no borders)
+    - obj:
+        x: 0
+        y: 107
+        width: 73
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              text: "Back"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1
+
+    - obj:
+        x: 75
+        y: 107
+        width: 73
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              text: "-0.5"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1
+
+    - obj:
+        x: 150
+        y: 107
+        width: 73
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              text: "+0.5"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1
+
+    - obj:
+        x: 225
+        y: 107
+        width: 71
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              text: "Next"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1

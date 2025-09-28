@@ -1,0 +1,14 @@
+# Explicitly ordered LVGL pages
+pages:
+  # Main screen - MUST be first
+  - !include ../lvgl_screens/00_main_screen.yaml
+  # Settings menu
+  - !include ../lvgl_screens/01_settings_menu.yaml
+  # Temperature settings
+  - !include ../lvgl_screens/02_temp_settings.yaml
+  # Humidity settings
+  - !include ../lvgl_screens/03_humidity_settings.yaml
+  # Light settings
+  - !include ../lvgl_screens/04_light_settings.yaml
+  # Air settings
+  - !include ../lvgl_screens/05_air_settings.yaml

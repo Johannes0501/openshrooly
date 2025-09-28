@@ -1,0 +1,162 @@
+# ========================================================================
+# MAIN SCREEN - Primary status display
+# Shows all critical information with single Settings button
+# ========================================================================
+
+- id: aaaa
+  bg_color: paper_white
+  widgets:
+    # Title and Version (y: 0-12)
+    - label:
+        text: "OpenShrooly v${device_version}"
+        align: TOP_LEFT
+        x: 5
+        y: 2
+        text_font: font1
+
+    - label:
+        id: main_time_label
+        text: "00:00"
+        align: TOP_RIGHT
+        x: -5
+        y: 2
+        text_font: font1
+
+    # Status Grid - Left Column Labels (fixed width for alignment)
+    - label:
+        text: "Temp:"
+        align: TOP_LEFT
+        x: 5
+        y: 18
+        text_font: font1
+
+    - label:
+        text: "Humidity:"
+        align: TOP_LEFT
+        x: 5
+        y: 30
+        text_font: font1
+
+    - label:
+        text: "Water:"
+        align: TOP_LEFT
+        x: 5
+        y: 42
+        text_font: font1
+
+    - label:
+        text: "Fan:"
+        align: TOP_LEFT
+        x: 5
+        y: 54
+        text_font: font1
+
+    - label:
+        text: "Light:"
+        align: TOP_LEFT
+        x: 5
+        y: 66
+        text_font: font1
+
+    - label:
+        text: "WiFi:"
+        align: TOP_LEFT
+        x: 5
+        y: 78
+        text_font: font1
+
+    # Status Grid - Left Column Values (aligned at x: 65)
+    - label:
+        id: main_temp_value
+        text: "--.-°C"
+        align: TOP_LEFT
+        x: 65
+        y: 18
+        text_font: font1
+
+    - label:
+        id: main_humidity_value
+        text: "--.-%"
+        align: TOP_LEFT
+        x: 65
+        y: 30
+        text_font: font1
+
+    - label:
+        id: main_water_value
+        text: "---%"
+        align: TOP_LEFT
+        x: 65
+        y: 42
+        text_font: font1
+
+    - label:
+        id: main_fan_value
+        text: "OFF"
+        align: TOP_LEFT
+        x: 65
+        y: 54
+        text_font: font1
+
+    - label:
+        id: main_light_value
+        text: "---- lux"
+        align: TOP_LEFT
+        x: 65
+        y: 66
+        text_font: font1
+
+    - label:
+        id: main_wifi_value
+        text: "---"
+        align: TOP_LEFT
+        x: 65
+        y: 78
+        text_font: font1
+
+    # Right Column Labels
+    - label:
+        text: "IP:"
+        align: TOP_LEFT
+        x: 150
+        y: 18
+        text_font: font1
+
+    - label:
+        text: "Uptime:"
+        align: TOP_LEFT
+        x: 150
+        y: 30
+        text_font: font1
+
+    # Right Column Values
+    - label:
+        id: main_ip_value
+        text: "---"
+        align: TOP_LEFT
+        x: 185
+        y: 18
+        text_font: font1
+
+    - label:
+        id: main_uptime_value
+        text: "--h --m"
+        align: TOP_LEFT
+        x: 200
+        y: 30
+        text_font: font1
+
+    # Button Bar - Settings button aligned with button 4 position
+    # Single button on the right (20px tall, at bottom)
+    - obj:
+        x: 224
+        y: 107
+        width: 71
+        height: 20
+        bg_color: paper_black
+        widgets:
+          - label:
+              text: "Select"
+              align: CENTER
+              text_color: paper_white
+              text_font: font1
