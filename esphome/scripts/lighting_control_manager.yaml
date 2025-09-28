@@ -2,6 +2,35 @@ id: lighting_control_manager
 mode: queued
 then:
   - lambda: |-
+      // Function to convert lux to brightness percentage based on measurements
+      auto lux_to_brightness = [](float lux) -> float {
+        if (lux <= 0) {
+          return 0.0f;
+        }
+
+        // For low lux (≤92 lux, which corresponds to ~20% brightness)
+        // We need to solve: lux = 0.442 + 7.383e-8 * brightness^6.991
+        // This is the threshold where 20% brightness gives about 92 lux
+        if (lux <= 92.0f) {
+          // Approximate inverse of: lux ≈ 0.442 + 7.383×10^-8 × brightness^6.991
+          // For simplicity, use a linear approximation in this range
+          // 0 lux = 0%, 92 lux = 20%
+          return (lux / 92.0f) * 20.0f;
+        }
+
+        // For higher lux (>92 lux)
+        // Inverse of: lux ≈ 0.02307 × brightness^2.768
+        // brightness = (lux / 0.02307)^(1/2.768)
+        float brightness = pow(lux / 0.02307f, 1.0f / 2.768f);
+
+        // Clamp to 100%
+        if (brightness > 100.0f) {
+          brightness = 100.0f;
+        }
+
+        return brightness;
+      };
+
       // Helper function to apply RGB settings
       auto apply_rgb_settings = [](float transition_ms = 0) {
         // Get RGB values as percentages (0-100)
@@ -164,17 +193,20 @@ then:
           id(lights_on_flag) = true;
 
           // Turn on lights with transition
-          // White channel
+          // White channel - convert lux to brightness percentage
+          float lux_value = id(white_intensity).state;
+          float brightness_pct = lux_to_brightness(lux_value);
+
           auto w_on = id(white_led).turn_on();
-          w_on.set_brightness(id(white_intensity).state / 100.0f);
+          w_on.set_brightness(brightness_pct / 100.0f);
           w_on.set_transition_length(2000);  // Faster transition for manual changes
           w_on.perform();
 
           // RGB channel - use the helper function
           apply_rgb_settings(2000);  // 2 second transition
 
-          ESP_LOGI("shrooly", "Lights ON (schedule change) — white=%.0f%%, rgb=(%d,%d,%d)",
-                   id(white_intensity).state,
+          ESP_LOGI("shrooly", "Lights ON (schedule change) — white=%.0f lux (%.1f%%), rgb=(%d,%d,%d)",
+                   id(white_intensity).state, brightness_pct,
                    (int) id(color_r).state, (int) id(color_g).state, (int) id(color_b).state);
         } else if (!in_win) {
           ESP_LOGI("shrooly", "Schedule change puts us out of window - turning lights OFF");
@@ -199,9 +231,12 @@ then:
 
         if (in_win) {
           // OFF -> ON : ramp white, set RGB target w/ derived brightness
-          // White channel
+          // White channel - convert lux to brightness percentage
+          float lux_value = id(white_intensity).state;
+          float brightness_pct = lux_to_brightness(lux_value);
+
           auto w_on = id(white_led).turn_on();
-          w_on.set_brightness(id(white_intensity).state / 100.0f);
+          w_on.set_brightness(brightness_pct / 100.0f);
           w_on.set_transition_length(60000);
           w_on.perform();
 
@@ -222,8 +257,8 @@ then:
           rgb_on.set_transition_length(60000);
           rgb_on.perform();
 
-          ESP_LOGI("shrooly", "Lights ON — white=%.0f%%, rgb=(%d,%d,%d)",
-                   id(white_intensity).state,
+          ESP_LOGI("shrooly", "Lights ON — white=%.0f lux (%.1f%%), rgb=(%d,%d,%d)",
+                   id(white_intensity).state, brightness_pct,
                    (int) id(color_r).state, (int) id(color_g).state, (int) id(color_b).state);
 
         } else {
@@ -242,19 +277,31 @@ then:
 
       // ---- while ON: refresh levels (no transition), log ONLY on change ----
       if (in_win) {
-        // White brightness refresh
-        static float last_white = -1.0f;
-        float white_now = id(white_intensity).state;
-        if (fabsf(white_now - last_white) > 0.5f) {  // log & apply on meaningful change
-          auto w_set = id(white_led).turn_on();
-          w_set.set_brightness(white_now / 100.0f);
+        // White brightness refresh - convert lux to brightness
+        static float last_lux = -1.0f;
+        float lux_now = id(white_intensity).state;
+        float brightness_pct = lux_to_brightness(lux_now);
+
+        // Special case: if lux is 0, ensure PWM is actually 0
+        if (lux_now == 0) {
+          auto w_set = id(white_led).turn_off();
           w_set.perform();
-          ESP_LOGI("shrooly", "White level -> %.0f%%", white_now);
-          last_white = white_now;
+          if (fabsf(lux_now - last_lux) > 5.0f) {
+            ESP_LOGI("shrooly", "White level -> 0 lux (OFF)");
+            last_lux = lux_now;
+          }
         } else {
-          auto w_set = id(white_led).turn_on();
-          w_set.set_brightness(white_now / 100.0f);
-          w_set.perform();
+          if (fabsf(lux_now - last_lux) > 5.0f) {  // log on meaningful lux change
+            auto w_set = id(white_led).turn_on();
+            w_set.set_brightness(brightness_pct / 100.0f);
+            w_set.perform();
+            ESP_LOGI("shrooly", "White level -> %.0f lux (%.1f%%)", lux_now, brightness_pct);
+            last_lux = lux_now;
+          } else {
+            auto w_set = id(white_led).turn_on();
+            w_set.set_brightness(brightness_pct / 100.0f);
+            w_set.perform();
+          }
         }
 
         // RGB color refresh

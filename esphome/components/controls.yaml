@@ -145,17 +145,17 @@ number:
   - platform: template
     id: white_intensity
     name: "White LED Intensity"
-    unit_of_measurement: "%"
+    unit_of_measurement: "lux"
     icon: mdi:lightbulb-outline
     min_value: 0
-    max_value: 100
-    step: 1
+    max_value: 4000
+    step: 5
     web_server:
       sorting_group_id: grp_lights
-      sorting_weight: 25    
+      sorting_weight: 25
     optimistic: true
     restore_value: true
-    initial_value: 15
+    initial_value: 150  # ~17% brightness - gentle light for pinning
     set_action:
       - script.execute: lighting_control_manager
 
