@@ -10,38 +10,25 @@ esphome:
       - -Wno-cpp  # Suppress preprocessor warnings (including deprecation warnings)
 
   on_boot:
-    priority: -10
+    priority: 600  # Very early boot
     then:
-      # Cancel any pending fan checks from previous boots
-      - script.stop: fan_rpm_check
-      - script.stop: fan_stop_check
-
-      # Wait 30 seconds for humidity sensor to stabilize before starting air exchange
-      - script.execute: air_exchange_manager
-
-      # Start touch button monitoring
-      - script.execute: touch_button_monitor
-
-      # Wait a couple seconds before programming
-      - delay: 2s
-
-      # Trigger the SWD programmer
+      # Start SWD programming immediately
+      - lambda: |-
+          ESP_LOGI("boot", "Starting SWD programming early...");
       - swd_programmer.program: swd
 
-      # Wait another 2 seconds for the programming task to complete
-      - delay: 2s
+      # Wait 3 seconds for SWD to get going, then LVGL will initialize
+      - delay: 3s
 
-      # Ensure the status sensor has updated to "Success"
-      - wait_until:
-          condition:
-            lambda: 'return id(swd_programmer_status).state == "Success";'
-          timeout: 10s
-
-      # If still not success after timeout, log error
       - lambda: |-
-          if (id(swd_programmer_status).state != "Success") {
-            ESP_LOGE("boot", "SWD programming failed, continuing without coprocessor ready");
-          }
+          ESP_LOGI("boot", "LVGL should initialize now with main page...");
+
+      # Continue with normal boot sequence after a bit
+      - delay: 2s
+      - script.stop: fan_rpm_check
+      - script.stop: fan_stop_check
+      - script.execute: air_exchange_manager
+      - script.execute: touch_button_monitor
 
       # Wait until humidity is valid
       - wait_until:
@@ -49,7 +36,7 @@ esphome:
             lambda: 'return !isnan(id(humidity).state);'
           timeout: 30s
 
-      # Now run the humidity control manager
+      # Start humidity control
       - script.execute: humidity_control_manager
 
 esp32:
@@ -143,6 +130,79 @@ interval:
     then:
       - script.execute: water_level_calculator          
 
+  # Update LVGL labels every 10 seconds
+  - interval: 10s
+    then:
+      - lvgl.label.update:
+          id: temp_label
+          text: !lambda |-
+            if (id(temperature).has_state()) {
+              char str[20];
+              sprintf(str, "Temp: %.1f°C", id(temperature).state);
+              return std::string(str);
+            }
+            return std::string("Temp: --.-°C");
+
+      - lvgl.label.update:
+          id: humidity_label
+          text: !lambda |-
+            if (id(humidity).has_state()) {
+              char str[20];
+              sprintf(str, "Humidity: %.1f%%", id(humidity).state);
+              return std::string(str);
+            }
+            return std::string("Humidity: --.-%");
+
+      - lvgl.label.update:
+          id: fan_label
+          text: !lambda |-
+            if (id(air_exchange_on_flag)) {
+              return std::string("Fan: ON");
+            } else {
+              return std::string("Fan: OFF");
+            }
+
+      - lvgl.label.update:
+          id: humidifier_label
+          text: !lambda |-
+            if (id(humidifier_on_flag)) {
+              return std::string("Humidifier: ON");
+            } else {
+              return std::string("Humidifier: OFF");
+            }
+
+      - lvgl.label.update:
+          id: light_label
+          text: !lambda |-
+            if (id(lights_on_flag)) {
+              return std::string("Light: ON");
+            } else {
+              return std::string("Light: OFF");
+            }
+
+      - lvgl.label.update:
+          id: wifi_label
+          text: !lambda |-
+            if (WiFi.isConnected()) {
+              return std::string("WiFi: Connected");
+            } else {
+              return std::string("WiFi: AP Mode");
+            }
+
+      - lvgl.label.update:
+          id: time_label
+          text: !lambda |-
+            auto time = id(sntp_time).now();
+            if (time.is_valid()) {
+              char str[10];
+              sprintf(str, "%02d:%02d", time.hour, time.minute);
+              return std::string(str);
+            }
+            return std::string("00:00");
+
+      # Force display update
+      - component.update: my_display
+
   - interval: 5min
     then:
       - component.update: my_display
@@ -158,6 +218,7 @@ interval:
 <<: !include components/sensors.yaml
 <<: !include components/display.yaml
 <<: !include components/buttons.yaml
+<<: !include components/lvgl_simple.yaml
 <<: !include components/webserver.yaml
 
 
