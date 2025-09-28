@@ -1,0 +1,31 @@
+# ========================================================================
+# UI NAVIGATION HANDLER SCRIPT
+# Handles button presses for UI navigation
+# ========================================================================
+
+id: ui_navigation_handler
+mode: restart
+parameters:
+  button: int
+then:
+  - lambda: |-
+      ESP_LOGI("ui", "Button %d pressed", button);
+
+      // For now, just log button presses
+      // Future: Navigate between LVGL pages/screens
+      switch(button) {
+        case 1:
+          ESP_LOGI("ui", "Button 1: Main screen");
+          break;
+        case 2:
+          ESP_LOGI("ui", "Button 2: Settings");
+          break;
+        case 3:
+          ESP_LOGI("ui", "Button 3: Alerts");
+          break;
+        case 4:
+          ESP_LOGI("ui", "Button 4: Status");
+          break;
+        default:
+          ESP_LOGI("ui", "Unknown button: %d", button);
+      }

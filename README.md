@@ -13,3 +13,9 @@ The 0.4.2 release should be pretty solid and I'd strongly recommend it if you ar
 ## Documentation
 
 See the [Wiki](https://github.com/grahamsz/openshrooly/wiki) for installation and operation instructions
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Important**: This project contains binary coprocessor firmware extracted from the original Shrooly device. The licensing terms for this binary component are ambiguous. See the LICENSE file for full details and disclaimers.

@@ -76,6 +76,10 @@ binary_sensor:
     internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_extras
+    on_press:
+      - script.execute:
+          id: ui_navigation_handler
+          button: 1
 
   # Touch button 2 (controlled by touch_button_monitor script)
   - platform: template
@@ -85,6 +89,10 @@ binary_sensor:
     internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_extras
+    on_press:
+      - script.execute:
+          id: ui_navigation_handler
+          button: 2
 
   # Touch button 3 (controlled by touch_button_monitor script)
   - platform: template
@@ -94,6 +102,10 @@ binary_sensor:
     internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_extras
+    on_press:
+      - script.execute:
+          id: ui_navigation_handler
+          button: 3
 
   # Touch button 4 (controlled by touch_button_monitor script)
   - platform: template
@@ -103,3 +115,7 @@ binary_sensor:
     internal: true  # Prevents sync to Home Assistant
     web_server:
       sorting_group_id: grp_extras
+    on_press:
+      - script.execute:
+          id: ui_navigation_handler
+          button: 4

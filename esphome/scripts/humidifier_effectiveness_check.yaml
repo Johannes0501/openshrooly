@@ -16,25 +16,30 @@ then:
         float start_humidity = id(humidifier_start_humidity);
         float humidity_increase = current_humidity - start_humidity;
 
-        // Warning if humidity hasn't risen at all or has decreased
+        // Set alert flag if humidity hasn't risen at all or has decreased
         if (humidity_increase <= 0.0f) {
+          id(humidity_not_rising_flag) = true;
           ESP_LOGW("humidifier_monitor",
                    "⚠️  Humidifier ON for 2 minutes but humidity unchanged: %.1f%% → %.1f%% (change: %+.1f%%)",
                    start_humidity, current_humidity, humidity_increase);
-          // Set alert flag
-          id(humidity_not_rising_flag) = true;
           // Beep for warning
           id(alert_beep_warning).execute();
         }
-        // Info log for small increases that might indicate slow operation
+        // Clear alert for small increases
         else if (humidity_increase < 1.0f) {
+          id(humidity_not_rising_flag) = false;
           ESP_LOGI("humidifier_monitor",
                    "ℹ️  Humidifier working slowly: %.1f%% → %.1f%% over 2 minutes (+%.1f%%)",
                    start_humidity, current_humidity, humidity_increase);
-          // Clear alert flag if humidity is rising even slowly
-          id(humidity_not_rising_flag) = false;
-        } else {
-          // Clear alert flag if humidity is rising well
-          id(humidity_not_rising_flag) = false;
         }
+        // Clear alert for good increases
+        else {
+          id(humidity_not_rising_flag) = false;
+          ESP_LOGI("humidifier_monitor",
+                   "Humidifier effective: %.1f%% → %.1f%% over 2 minutes (+%.1f%%)",
+                   start_humidity, current_humidity, humidity_increase);
+        }
+      } else {
+        // Clear alert if humidifier is off
+        id(humidity_not_rising_flag) = false;
       }

@@ -24,6 +24,9 @@ sensor:
             send_every: 1
 
       on_value:
+        # Track last reading time for timeout detection
+        - lambda: |-
+            id(last_sht41_reading_time) = millis();
         # Every second, publish the raw value to the public template sensor.
         - sensor.template.publish:
             id: temp_ha

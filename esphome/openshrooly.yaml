@@ -62,9 +62,10 @@ ota:
 
 
 external_components:
-  - source: 
+  - source:
       type: local
       path: external_components
+# LVGL is now a native component in ESPHome 2024.8.0+
 
 wifi:
   ap:
@@ -83,30 +84,11 @@ captive_portal:
 # Include text sensors early so scripts can reference them
 <<: !include components/text_sensors.yaml
 
-script:
-  # This runs in a continuous loop (or when the timing is changed)
-  - !include scripts/air_exchange_manager.yaml
-
-  # This runs any time the humidity changes (usually once a second)
-  - !include scripts/humidity_control_manager.yaml
-  - !include scripts/humidifier_pwm_control.yaml
-
-  # This runs when the light values change or every 30 seconds
-  - !include scripts/lighting_control_manager.yaml
-
-  # One-time monitoring checks triggered by state changes
-  - !include scripts/fan_rpm_check.yaml
-  - !include scripts/fan_stop_check.yaml
-  - !include scripts/humidifier_effectiveness_check.yaml
-
-  # Touch button monitoring script (polls every 200ms)
-  - !include scripts/touch_button_monitor.yaml
-
-  # Water level calculation script (called by an interval)
-  - !include scripts/water_level_calculator.yaml
-
-  # Alert beep patterns
-  - !include scripts/alert_beeps.yaml
+# All scripts are in the scripts/ directory
+# Each file must contain either:
+#   - A single script definition (id: xxx, mode: xxx, then: xxx)
+#   - Or a list of script definitions (- id: xxx...)
+script: !include_dir_merge_list scripts/
 
 interval:
   # Water level check interval (every 30 seconds)
@@ -226,6 +208,7 @@ interval:
 
 
 <<: !include components/globals.yaml
+<<: !include components/ui_globals.yaml
 <<: !include components/calibration.yaml
 <<: !include components/selects.yaml
 <<: !include components/controls.yaml
