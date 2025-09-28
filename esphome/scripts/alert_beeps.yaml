@@ -1,0 +1,31 @@
+# ========================================================================
+# ALERT BEEP SCRIPTS
+# Simple beep patterns for alerts
+# ========================================================================
+
+# Critical alert beep (3 quick beeps)
+- id: alert_beep_critical
+  mode: single
+  then:
+    - rtttl.play: "critical:d=8,o=5,b=200:c,p,c,p,c"
+    - logger.log:
+        level: WARN
+        format: "CRITICAL ALERT"
+
+# Warning alert beep (single beep)
+- id: alert_beep_warning
+  mode: single
+  then:
+    - rtttl.play: "warning:d=4,o=5,b=120:c"
+    - logger.log:
+        level: WARN
+        format: "WARNING ALERT"
+
+# Alert cleared beep (ascending tone)
+- id: alert_beep_cleared
+  mode: single
+  then:
+    - rtttl.play: "clear:d=8,o=5,b=140:c,e,g"
+    - logger.log:
+        level: INFO
+        format: "Alert cleared"

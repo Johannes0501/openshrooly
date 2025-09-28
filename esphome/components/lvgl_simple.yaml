@@ -95,3 +95,11 @@ lvgl:
             align: TOP_RIGHT
             x: -10
             y: 5
+
+        # Alert indicator (bottom of screen)
+        - label:
+            id: alert_label
+            text: "No Alerts"
+            align: BOTTOM_MID
+            y: -5
+            text_color: paper_black

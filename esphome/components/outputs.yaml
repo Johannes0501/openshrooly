@@ -57,9 +57,14 @@ switch:
           bool err = id(bus_a).write(0x6C, data, 2);  // true = error
           if (err) {
             ESP_LOGE("humidifier", "TURN ON: write to 0x6C failed (NACK)");
+            id(i2c_failure_count) = id(i2c_failure_count) + 1;
+            if (id(i2c_failure_count) >= 3) {
+              id(alert_beep_critical).execute();
+            }
           } else {
             float current_humidity = id(humidity).state;
             ESP_LOGI("humidifier", "TURN ON: sent OK (humidity: %.1f%%)", current_humidity);
+            id(i2c_failure_count) = 0;  // Reset on success
           }
     turn_off_action:
       - lambda: |-
@@ -67,9 +72,14 @@ switch:
           bool err = id(bus_a).write(0x6C, data, 2);  // true = error
           if (err) {
             ESP_LOGE("humidifier", "TURN OFF: write to 0x6C failed (NACK)");
+            id(i2c_failure_count) = id(i2c_failure_count) + 1;
+            if (id(i2c_failure_count) >= 3) {
+              id(alert_beep_critical).execute();
+            }
           } else {
             float current_humidity = id(humidity).state;
             ESP_LOGI("humidifier", "TURN OFF: sent OK (humidity: %.1f%%)", current_humidity);
+            id(i2c_failure_count) = 0;  // Reset on success
           }
     web_server:
       sorting_group_id: grp_hidden

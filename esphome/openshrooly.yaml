@@ -105,6 +105,9 @@ script:
   # Water level calculation script (called by an interval)
   - !include scripts/water_level_calculator.yaml
 
+  # Alert beep patterns
+  - !include scripts/alert_beeps.yaml
+
 interval:
   # Water level check interval (every 30 seconds)
   - interval: 1s
@@ -200,6 +203,20 @@ interval:
             }
             return std::string("00:00");
 
+      - lvgl.label.update:
+          id: alert_label
+          text: !lambda |-
+            int count = id(active_alert_count);
+            if (count == 0) {
+              return std::string("No Alerts");
+            } else if (count == 1) {
+              return std::string("⚠️ 1 Alert");
+            } else {
+              char str[20];
+              sprintf(str, "⚠️ %d Alerts", count);
+              return std::string(str);
+            }
+
       # Force display update
       - component.update: my_display
 
@@ -218,6 +235,7 @@ interval:
 <<: !include components/sensors.yaml
 <<: !include components/display.yaml
 <<: !include components/buttons.yaml
+<<: !include components/alerts_simple.yaml
 <<: !include components/lvgl_simple.yaml
 <<: !include components/webserver.yaml
 

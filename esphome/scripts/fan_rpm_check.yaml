@@ -14,5 +14,12 @@ then:
         // Also check that the fan output is actually on (not just the flag)
         if (id(air_exchange_fan).state && current_rpm < 100.0f) {
           ESP_LOGW("fan_monitor", "⚠️  Air exchange fan ON for 10s but only %0.0f RPM (expected >100 RPM)", current_rpm);
+          // Set alert flag
+          id(fan_spinup_failure) = true;
+          // Beep for critical alert
+          id(alert_beep_critical).execute();
+        } else {
+          // Clear alert if fan is working
+          id(fan_spinup_failure) = false;
         }
       }

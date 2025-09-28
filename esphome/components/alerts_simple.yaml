@@ -1,0 +1,118 @@
+# ========================================================================
+# SIMPLE ALERTS CONFIGURATION
+# Basic alert system with LVGL display integration
+# ========================================================================
+
+# Global variables for alert tracking
+globals:
+  # Alert count for display
+  - id: active_alert_count
+    type: int
+    initial_value: '0'
+
+  # I2C failure tracking
+  - id: i2c_failure_count
+    type: int
+    initial_value: '0'
+
+  # Fan spinup failure flag
+  - id: fan_spinup_failure
+    type: bool
+    initial_value: 'false'
+
+  # Humidity effectiveness tracking
+  - id: humidifier_start_humidity
+    type: float
+    initial_value: '0.0'
+
+  - id: humidity_not_rising_flag
+    type: bool
+    initial_value: 'false'
+
+# Alert binary sensors for monitoring
+binary_sensor:
+  # Humidity control failure alert
+  - platform: template
+    id: alert_humidity_failure
+    name: "Alert: Humidity Control Failure"
+    device_class: problem
+    icon: mdi:water-off
+    lambda: 'return id(humidity_not_rising_flag);'
+
+  # I2C communication failure alert
+  - platform: template
+    id: alert_i2c_failure
+    name: "Alert: I2C Communication Failure"
+    device_class: problem
+    icon: mdi:connection
+    lambda: 'return id(i2c_failure_count) > 2;'
+
+  # Fan spinup failure alert
+  - platform: template
+    id: alert_fan_spinup
+    name: "Alert: Fan Start Failure"
+    device_class: problem
+    icon: mdi:fan-alert
+    lambda: 'return id(fan_spinup_failure);'
+
+  # Temperature too low alert
+  - platform: template
+    id: alert_temp_too_low
+    name: "Alert: Temperature Too Low"
+    device_class: cold
+    icon: mdi:thermometer-low
+    lambda: |-
+      if (!id(temperature).has_state()) return false;
+      return id(temperature).state < 18.0;  // Alert if below 18°C
+
+  # Temperature too high alert
+  - platform: template
+    id: alert_temp_too_high
+    name: "Alert: Temperature Too High"
+    device_class: heat
+    icon: mdi:thermometer-high
+    lambda: |-
+      if (!id(temperature).has_state()) return false;
+      return id(temperature).state > 28.0;  // Alert if above 28°C
+
+# Text sensor showing active alerts
+text_sensor:
+  - platform: template
+    id: active_alerts_summary
+    name: "Active Alerts"
+    icon: mdi:alert-circle
+    update_interval: 10s
+    lambda: |-
+      // Count active alerts
+      int count = 0;
+      std::string summary = "";
+
+      if (id(alert_humidity_failure).state) {
+        summary += "Humidity; ";
+        count++;
+      }
+      if (id(alert_i2c_failure).state) {
+        summary += "I2C; ";
+        count++;
+      }
+      if (id(alert_fan_spinup).state) {
+        summary += "Fan; ";
+        count++;
+      }
+      if (id(alert_temp_too_low).state) {
+        summary += "Temp Low; ";
+        count++;
+      }
+      if (id(alert_temp_too_high).state) {
+        summary += "Temp High; ";
+        count++;
+      }
+
+      // Update global count for LVGL display
+      id(active_alert_count) = count;
+
+      if (count == 0) {
+        return std::string("No alerts");
+      } else {
+        return summary;
+      }
