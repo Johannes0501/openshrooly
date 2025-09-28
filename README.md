@@ -12,7 +12,7 @@ The 0.4.2 release should be pretty solid and I'd strongly recommend it if you ar
 
 ## Documentation
 
-See the [Wiki](https://github.com/grahamsz/openshrooly/wiki) for installation and operation instructions
+See [OpenShrooly.com](https://openshrooly.com) for full documentation
 
 ## License
 
