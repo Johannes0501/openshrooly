@@ -41,6 +41,10 @@ esphome:
       - script.execute: air_exchange_manager
       - script.execute: touch_button_monitor
 
+      # Restart WiFi AP after 5 seconds to ensure DHCP server is running
+      - delay: 5s
+      - script.execute: wifi_ap_restart
+
       # Wait until humidity is valid
       - wait_until:
           condition:
