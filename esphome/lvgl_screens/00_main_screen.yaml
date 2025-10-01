@@ -146,6 +146,14 @@
         y: 30
         text_font: font1
 
+    - label:
+        id: main_status_message
+        text: ""
+        align: BOTTOM_LEFT
+        x: 5
+        y: -5
+        text_font: font1
+
     # Button Bar - Settings button aligned with button 4 position
     # Single button on the right (20px tall, at bottom)
     - obj:
