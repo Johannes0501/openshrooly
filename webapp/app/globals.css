@@ -300,6 +300,7 @@ body {
 }
 
 .modal {
+  position: relative;
   background: white;
   border-radius: 16px;
   padding: 32px;
@@ -328,10 +329,9 @@ body {
   font-weight: 700;
   margin-bottom: 24px;
   color: #1a202c;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: block;
   padding-right: 48px;
+  position: relative;
 }
 
 .modal-close-x {
@@ -1068,6 +1068,59 @@ input[type="number"]:focus {
 .humidity-handle-center:active,
 .humidity-handle-edge:active {
   cursor: grabbing;
+}
+
+/* Temperature slider styles */
+.temperature-tick {
+  font-size: 12px;
+  font-weight: 400;
+  color: #718096;
+  user-select: none;
+  line-height: 1;
+  filter: grayscale(100%) brightness(0.6);
+}
+
+.temperature-handle-edge:hover .temperature-tick {
+  filter: grayscale(100%) brightness(0.4);
+  font-weight: 700;
+}
+
+.temperature-handle-center:active,
+.temperature-handle-edge:active {
+  cursor: grabbing;
+}
+
+/* Status badges */
+.status-rectangle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+  z-index: 10;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.heating-badge {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.humidifying-badge {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.running-badge {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 /* Footer */

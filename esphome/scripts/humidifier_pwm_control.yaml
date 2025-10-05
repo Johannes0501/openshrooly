@@ -7,6 +7,8 @@
 - id: humidifier_pwm_control
   mode: restart
   then:
+  - lambda: |-
+      ESP_LOGI("humidifier_pwm", "🔵 PWM control started - flag is ON");
   - while:
       condition:
         lambda: 'return id(humidifier_on_flag);'
@@ -27,7 +29,10 @@
             uint8_t data[2];
             data[0] = 0x00;  // Register
             data[1] = 0x01;  // Turn on
-            device->write(data, 2);
+            bool err = device->write(data, 2);
+            if (err) {
+              ESP_LOGW("humidifier_pwm", "❌ I2C write FAILED for humidifier ON");
+            }
             delete device;
 
             // Keep on for the calculated duration
@@ -63,6 +68,7 @@
   # When loop exits (humidifier_on_flag = false), ensure fan is OFF
   - lambda: |-
       // Always turn off when stopping
+      ESP_LOGI("humidifier_pwm", "⚫ PWM control stopping - turning fan OFF");
       auto device = new i2c::I2CDevice();
       device->set_i2c_bus(id(bus_a));
       device->set_i2c_address(0x6C);  // Humidifier fan I2C address
@@ -70,7 +76,8 @@
       uint8_t data[2];
       data[0] = 0x00;  // Register
       data[1] = 0x00;  // Turn off
-      device->write(data, 2);
+      bool err = device->write(data, 2);
+      if (err) {
+        ESP_LOGW("humidifier_pwm", "❌ I2C write FAILED for final OFF command");
+      }
       delete device;
-
-      ESP_LOGD("humidifier_pwm", "Humidifier PWM stopped - fan turned OFF");

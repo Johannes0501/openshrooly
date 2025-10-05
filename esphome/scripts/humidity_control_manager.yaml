@@ -7,7 +7,16 @@
   mode: queued
   then:
   - lambda: |-
-      if (!isnan(id(humidity).state) && !isnan(id(target_humidity).state)) {
+      // Check if we have valid sensor values
+      if (isnan(id(humidity).state)) {
+        return;
+      }
+      if (isnan(id(target_humidity).state)) {
+        return;
+      }
+
+      // Both values are valid, proceed with control
+      {
         // Get hysteresis value
         float hyst = id(humidity_hysteresis).state;
 
@@ -53,6 +62,7 @@
 
         // Execute control actions
         if (should_turn_on) {
+          ESP_LOGI("humidity", "🟢 Turning ON humidifier - humidity %.1f%% < target %.1f%% - hyst %.2f%%", h, t, hyst);
           id(humidifier_on_flag) = true;
 
           // Start the PWM control script
@@ -62,6 +72,7 @@
           id(humidifier_effectiveness_check).execute();
 
         } else if (should_turn_off) {
+          ESP_LOGI("humidity", "🔴 Turning OFF humidifier - humidity %.1f%% >= target %.1f%% + hyst %.2f%%", h, t, hyst);
           id(humidifier_on_flag) = false;
 
           // Stop the PWM script immediately
@@ -74,7 +85,10 @@
           uint8_t data[2];
           data[0] = 0x00;  // Register
           data[1] = 0x00;  // Turn off
-          device->write(data, 2);
+          bool err = device->write(data, 2);
+          if (err) {
+            ESP_LOGW("humidity", "❌ I2C write FAILED for humidifier OFF");
+          }
           delete device;
         }
 
@@ -93,4 +107,4 @@
             str_sprintf("OFF — humidity %.1f%% %s", actual_humidity, range_info.c_str()).c_str()
           );
         }
-      }
+      }  // End of valid values check

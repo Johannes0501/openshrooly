@@ -22,7 +22,7 @@ globals:
 
   - id: lights_on_flag
     type: bool
-    restore_value: yes
+    restore_value: no  # Let lighting control manager decide at boot based on schedule
     initial_value: 'false'
 
   - id: air_exchange_on_flag
@@ -42,7 +42,7 @@ globals:
 
   - id: humidifier_on_flag
     type: bool
-    restore_value: yes
+    restore_value: no  # Don't restore - let control manager decide at boot
     initial_value: 'false'
 
   # Humidifier monitoring variables

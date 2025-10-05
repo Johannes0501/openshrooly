@@ -6,6 +6,43 @@
 
 # Alert binary sensors for monitoring
 binary_sensor:
+  # Heat requested (for Home Assistant integration)
+  - platform: template
+    id: heat_requested
+    name: "Heat Requested"
+    icon: mdi:fire
+    device_class: heat
+    web_server:
+      sorting_group_id: grp_temperature
+      sorting_weight: 2
+
+  # Humidifier on status (for web UI)
+  - platform: template
+    id: humidifier_on
+    name: "Humidifier On"
+    icon: mdi:air-humidifier
+    lambda: 'return id(humidifier_on_flag);'
+    web_server:
+      sorting_group_id: grp_hidden
+
+  # Air exchange on status (for web UI)
+  - platform: template
+    id: air_exchange_on
+    name: "Air Exchange On"
+    icon: mdi:fan
+    lambda: 'return id(air_exchange_on_flag);'
+    web_server:
+      sorting_group_id: grp_hidden
+
+  # Water calibration status (for web UI)
+  - platform: template
+    id: water_calibrated
+    name: "Water Calibrated"
+    icon: mdi:water-check
+    lambda: 'return id(is_calibrated);'
+    web_server:
+      sorting_group_id: grp_hidden
+
   # Humidity control failure alert
   - platform: template
     id: alert_humidity_failure
@@ -50,8 +87,8 @@ binary_sensor:
       sorting_group_id: grp_hidden  # Hide from main web UI
     lambda: |-
       if (!id(temperature).has_state()) return false;
-      if (!id(temp_min_threshold).has_state()) return false;
-      return id(temperature).state < id(temp_min_threshold).state;
+      if (!id(temperature_warning_minimum).has_state()) return false;
+      return id(temperature).state < id(temperature_warning_minimum).state;
 
   # Temperature too high alert (uses dynamic threshold)
   - platform: template
@@ -64,8 +101,8 @@ binary_sensor:
       sorting_group_id: grp_hidden  # Hide from main web UI
     lambda: |-
       if (!id(temperature).has_state()) return false;
-      if (!id(temp_max_threshold).has_state()) return false;
-      return id(temperature).state > id(temp_max_threshold).state;
+      if (!id(temperature_warning_maximum).has_state()) return false;
+      return id(temperature).state > id(temperature_warning_maximum).state;
 
 # Text sensor showing active alerts
 text_sensor:

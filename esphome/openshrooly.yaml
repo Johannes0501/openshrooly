@@ -34,8 +34,12 @@ esphome:
       - delay: 100ms  # Small delay between page show and update
       - component.update: my_display
 
-      # Continue with normal boot sequence after a bit
-      - delay: 1s
+      # Wait for SWD programming to complete (typically takes 5-7 seconds total)
+      - delay: 5s
+      - lambda: |-
+          ESP_LOGI("boot", "SWD programming should be complete, starting fan control...");
+
+      # Continue with normal boot sequence
       - script.stop: fan_rpm_check
       - script.stop: fan_stop_check
       - script.execute: air_exchange_manager
@@ -52,6 +56,8 @@ esphome:
           timeout: 30s
 
       # Start humidity control
+      - lambda: |-
+          ESP_LOGI("boot", "🌊 Humidity sensor ready, starting humidity control manager");
       - script.execute: humidity_control_manager
 
 esp32:

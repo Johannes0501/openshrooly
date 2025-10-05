@@ -1,0 +1,47 @@
+# This script evaluates temperature against a target setpoint with hysteresis.
+# It sets the heat_requested binary sensor to indicate when heating is needed.
+# This provides a signal that can be used by Home Assistant to control external heating.
+
+- id: temperature_control_manager
+  mode: queued
+  then:
+  - lambda: |-
+      // Check if temperature control is enabled
+      if (!id(temperature_control_enabled).state) {
+        // Temperature control is disabled, turn off heat request
+        if (id(heat_requested).state) {
+          id(heat_requested).publish_state(false);
+          ESP_LOGI("temp_control", "Temperature control disabled - heat request OFF");
+        }
+        return;
+      }
+
+      // Temperature control is enabled
+      if (!isnan(id(temperature).state) && !isnan(id(temperature_target).state)) {
+        float hyst = id(temperature_hysteresis).state;
+        float temp = id(temperature).state;
+        float target = id(temperature_target).state;
+
+        // Control logic with +/- hysteresis
+        // Turn ON heating when temperature drops below (target - hysteresis)
+        // Turn OFF heating when temperature rises above (target + hysteresis)
+        bool should_heat = false;
+
+        if (!id(heat_requested).state && temp < target - hyst) {
+          should_heat = true;
+        } else if (id(heat_requested).state && temp < target + hyst) {
+          should_heat = true;
+        }
+
+        // Publish heat request state
+        if (should_heat != id(heat_requested).state) {
+          id(heat_requested).publish_state(should_heat);
+          if (should_heat) {
+            ESP_LOGI("temp_control", "Heat requested - temp %.1f°C < target %.1f°C (hyst ±%.2f°C)",
+                     temp, target, hyst);
+          } else {
+            ESP_LOGI("temp_control", "Heat request OFF - temp %.1f°C >= target %.1f°C (hyst ±%.2f°C)",
+                     temp, target, hyst);
+          }
+        }
+      }

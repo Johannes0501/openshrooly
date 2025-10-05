@@ -1,29 +1,30 @@
 # ========================================================================
 # HUMIDIFIER RESYNC INTERVAL ITEM
-# Periodically rewrites the humidifier I2C register to ensure it's in sync
-# This handles cases where the humidifier might have missed a command
+# Periodically checks if state is correct and fixes if needed
+# This handles cases where the humidifier didn't start at boot
 # ========================================================================
 
-interval: 60s  # Every minute, update the humidifier I2C register just in case it didn't register
+interval: 30s  # Every 30 seconds, verify state is correct
 then:
   - lambda: |-
-      uint8_t data[2];
-      if (id(humidifier_fan).state) {
-        // Humidifier should be ON - send ON command
-        data[0] = 0x00; data[1] = 0x01;
-        bool err = id(bus_a).write(0x6C, data, 2);
-        if (err) {
-          ESP_LOGW("humidifier_resync", "Failed to resync humidifier ON state");
-        } else {
-          ESP_LOGV("humidifier_resync", "Resynced humidifier ON state");
-        }
-      } else {
-        // Humidifier should be OFF - send OFF command
-        data[0] = 0x00; data[1] = 0x00;
-        bool err = id(bus_a).write(0x6C, data, 2);
-        if (err) {
-          ESP_LOGW("humidifier_resync", "Failed to resync humidifier OFF state");
-        } else {
-          ESP_LOGV("humidifier_resync", "Resynced humidifier OFF state");
+      // Check if humidifier should be ON based on humidity
+      if (!isnan(id(humidity).state) && !isnan(id(target_humidity).state)) {
+        float h = id(humidity).state;
+        float t = id(target_humidity).state;
+        float hyst = id(humidity_hysteresis).state;
+
+        // Should be ON if humidity is below target - hysteresis
+        bool should_be_on = h < (t - hyst);
+
+        // Should be OFF if humidity is above target + hysteresis
+        bool should_be_off = h >= (t + hyst);
+
+        // Only intervene if state is wrong
+        if (should_be_on && !id(humidifier_on_flag)) {
+          ESP_LOGW("humidifier_resync", "⚠️ Humidifier should be ON but isn't - calling control manager (%.1f%% < %.1f%% - %.2f%%)", h, t, hyst);
+          id(humidity_control_manager).execute();
+        } else if (should_be_off && id(humidifier_on_flag)) {
+          ESP_LOGW("humidifier_resync", "⚠️ Humidifier should be OFF but isn't - calling control manager (%.1f%% >= %.1f%% + %.2f%%)", h, t, hyst);
+          id(humidity_control_manager).execute();
         }
       }

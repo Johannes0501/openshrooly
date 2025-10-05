@@ -32,6 +32,8 @@ sensor:
         - sensor.template.publish:
             id: temp_ha
             state: !lambda 'return x;'
+        # Trigger temperature control evaluation
+        - script.execute: temperature_control_manager
     humidity:
       id: humidity
       name: "Current Humidity"

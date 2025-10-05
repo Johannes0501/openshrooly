@@ -69,6 +69,19 @@ class ESPHomeAPI {
     }
   }
 
+  async setSwitch(switchId: string, state: boolean): Promise<boolean> {
+    try {
+      const action = state ? 'turn_on' : 'turn_off'
+      const response = await fetch(`${this.baseUrl}/switch/${switchId}/${action}`, {
+        method: 'POST',
+      })
+      return response.ok
+    } catch (error) {
+      console.error(`Failed to set switch ${switchId}:`, error)
+      return false
+    }
+  }
+
   async getAllSensors(): Promise<DeviceState> {
     try {
       // Fetch all the sensors in parallel

@@ -28,19 +28,34 @@ export default function Dashboard() {
   const [luxValue, setLuxValue] = useState<number>(150)
   const [draggingHandle, setDraggingHandle] = useState<'sunrise' | 'sunset' | null>(null)
   const [draggingHumidityHandle, setDraggingHumidityHandle] = useState<'target' | 'lower' | 'upper' | null>(null)
+  const [draggingTempHandle, setDraggingTempHandle] = useState<'target' | 'lower' | 'upper' | null>(null)
   const [showLicense, setShowLicense] = useState(false)
+  const [otaFile, setOtaFile] = useState<File | null>(null)
+  const [otaProgress, setOtaProgress] = useState<number>(0)
+  const [otaStatus, setOtaStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
+  const [otaMessage, setOtaMessage] = useState<string>('')
 
   // Track humidity values during drag to avoid stale state issues
   const humidityDragValues = useRef<{ target: number; hysteresis: number }>({ target: 70, hysteresis: 2 })
+  const tempDragValues = useRef<{ target: number; hysteresis: number }>({ target: 22, hysteresis: 1 })
   const debounceTimers = useRef<{ [key: string]: NodeJS.Timeout }>({})
 
   useEffect(() => {
     const fetchData = async () => {
-      const numbers = await api.getAllNumbers()
-      const tz = await api.getSelect('timezone_select')
+      try {
+        const numbers = await api.getAllNumbers()
+        setEntities((prev) => ({ ...prev, ...numbers }))
+      } catch (e) {
+        // Ignore errors during initial fetch - EventSource will populate data
+      }
 
-      setEntities((prev) => ({ ...prev, ...numbers }))
-      if (tz?.state) setTimezone(tz.state)
+      try {
+        const tz = await api.getSelect('timezone_select')
+        if (tz?.state) setTimezone(tz.state)
+      } catch (e) {
+        // Ignore errors during initial fetch - EventSource will populate data
+      }
+
       setLoading(false)
     }
 
@@ -90,6 +105,16 @@ export default function Dashboard() {
     await api.pressButton(buttonId)
   }
 
+  const handleSwitchChange = async (id: string, checked: boolean) => {
+    setEntities((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], state: checked ? 'ON' : 'OFF', value: checked },
+    }))
+
+    const switchId = id.replace('switch-', '')
+    await api.setSwitch(switchId, checked)
+  }
+
   const handleSelectChange = async (selectId: string, value: string) => {
     await api.setSelect(selectId, value)
   }
@@ -97,6 +122,60 @@ export default function Dashboard() {
   const handleTimezoneChange = async (tz: string) => {
     setTimezone(tz)
     await handleSelectChange('timezone_select', tz)
+  }
+
+  const handleOtaUpload = async () => {
+    if (!otaFile) {
+      setOtaMessage('Please select a firmware file')
+      setOtaStatus('error')
+      return
+    }
+
+    setOtaStatus('uploading')
+    setOtaProgress(0)
+    setOtaMessage('Uploading firmware...')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', otaFile)
+
+      const xhr = new XMLHttpRequest()
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = (e.loaded / e.total) * 100
+          setOtaProgress(percentComplete)
+        }
+      })
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status === 200) {
+          setOtaStatus('success')
+          setOtaMessage('Firmware uploaded successfully! Device will restart...')
+          setOtaProgress(100)
+          setTimeout(() => {
+            setOtaStatus('idle')
+            setOtaFile(null)
+            setOtaProgress(0)
+            setOtaMessage('')
+          }, 5000)
+        } else {
+          setOtaStatus('error')
+          setOtaMessage(`Upload failed: ${xhr.statusText}`)
+        }
+      })
+
+      xhr.addEventListener('error', () => {
+        setOtaStatus('error')
+        setOtaMessage('Upload failed: Network error')
+      })
+
+      xhr.open('POST', '/update')
+      xhr.send(formData)
+    } catch (error) {
+      setOtaStatus('error')
+      setOtaMessage(`Upload failed: ${error}`)
+    }
   }
 
   // Convert RGB 0-100 to hex color
@@ -259,7 +338,6 @@ export default function Dashboard() {
   // Humidity slider drag handling
   useEffect(() => {
     const handleMouseUp = () => {
-      console.log('Humidity drag ended')
       setDraggingHumidityHandle(null)
     }
     const handleMouseMove = (e: MouseEvent) => {
@@ -267,50 +345,44 @@ export default function Dashboard() {
         const track = document.querySelector('.humidity-slider-track') as HTMLDivElement
         if (track) {
           const rect = track.getBoundingClientRect()
-          console.log('Track bounds:', rect.left, rect.right, rect.width)
           const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
           const percentage = x / rect.width
           const humidity = 60 + (percentage * 40) // Map 0-100% of slider to 60-100% humidity
           const roundedHumidity = Math.round(humidity * 2) / 2 // Round to 0.5%
 
-          console.log('Dragging:', draggingHumidityHandle, 'Mouse X:', e.clientX, 'Track X:', x, 'Percentage:', percentage, 'Humidity:', roundedHumidity)
 
           // Use ref values for current drag state (more up-to-date than entity state)
           const currentTarget = humidityDragValues.current.target
           const currentHyst = humidityDragValues.current.hysteresis
 
-          console.log('Current state - Target:', currentTarget, 'Hysteresis:', currentHyst)
 
           if (draggingHumidityHandle === 'target') {
             // Dragging center - move target humidity
             const clampedTarget = Math.max(60 + currentHyst, Math.min(100 - currentHyst, roundedHumidity))
-            console.log('Setting target to:', clampedTarget)
             humidityDragValues.current.target = clampedTarget
             handleNumberChange('number-target_humidity', clampedTarget)
           } else if (draggingHumidityHandle === 'lower') {
             // Dragging lower bound - adjust hysteresis
             // Can't drag past the target (would be negative)
             if (roundedHumidity > currentTarget) {
-              console.log('Lower bound past target, ignoring')
               return
             }
-            const newHyst = Math.min(5, currentTarget - roundedHumidity)
+            // Scale down by 2 to get actual hysteresis (visual is 2x)
+            const newHyst = Math.min(5, (currentTarget - roundedHumidity) / 2)
             // Round to 0.25%, but if very close to 0, snap to 0
             const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
-            console.log('Setting hysteresis (from lower) to:', roundedHyst, '(newHyst was:', newHyst, ')')
             humidityDragValues.current.hysteresis = roundedHyst
             handleNumberChange('number-humidity__hysteresis', roundedHyst)
           } else if (draggingHumidityHandle === 'upper') {
             // Dragging upper bound - adjust hysteresis
             // Can't drag past the target (would be negative)
             if (roundedHumidity < currentTarget) {
-              console.log('Upper bound past target, ignoring')
               return
             }
-            const newHyst = Math.min(5, roundedHumidity - currentTarget)
+            // Scale down by 2 to get actual hysteresis (visual is 2x)
+            const newHyst = Math.min(5, (roundedHumidity - currentTarget) / 2)
             // Round to 0.25%, but if very close to 0, snap to 0
             const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
-            console.log('Setting hysteresis (from upper) to:', roundedHyst, '(newHyst was:', newHyst, ')')
             humidityDragValues.current.hysteresis = roundedHyst
             handleNumberChange('number-humidity__hysteresis', roundedHyst)
           }
@@ -325,6 +397,61 @@ export default function Dashboard() {
       document.removeEventListener('mousemove', handleMouseMove)
     }
   }, [draggingHumidityHandle])
+
+  // Temperature slider drag handling
+  useEffect(() => {
+    const handleMouseUp = () => {
+      setDraggingTempHandle(null)
+    }
+    const handleMouseMove = (e: MouseEvent) => {
+      if (draggingTempHandle) {
+        const track = document.querySelector('.temperature-slider-track') as HTMLDivElement
+        if (track) {
+          const rect = track.getBoundingClientRect()
+          const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
+          const percentage = x / rect.width
+          const temp = 15 + (percentage * 20) // Map 0-100% of slider to 15-35°C
+          const roundedTemp = Math.round(temp * 2) / 2 // Round to 0.5°C
+
+          // Use ref values for current drag state
+          const currentTarget = tempDragValues.current.target
+          const currentHyst = tempDragValues.current.hysteresis
+
+          if (draggingTempHandle === 'target') {
+            // Dragging center - move target temperature
+            const clampedTarget = Math.max(15 + currentHyst, Math.min(35 - currentHyst, roundedTemp))
+            tempDragValues.current.target = clampedTarget
+            handleNumberChange('number-temperature__target', clampedTarget)
+          } else if (draggingTempHandle === 'lower') {
+            // Dragging lower bound - adjust hysteresis
+            if (roundedTemp > currentTarget) {
+              return
+            }
+            const newHyst = Math.min(3, currentTarget - roundedTemp)
+            const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
+            tempDragValues.current.hysteresis = roundedHyst
+            handleNumberChange('number-temperature__hysteresis', roundedHyst)
+          } else if (draggingTempHandle === 'upper') {
+            // Dragging upper bound - adjust hysteresis
+            if (roundedTemp < currentTarget) {
+              return
+            }
+            const newHyst = Math.min(3, roundedTemp - currentTarget)
+            const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
+            tempDragValues.current.hysteresis = roundedHyst
+            handleNumberChange('number-temperature__hysteresis', roundedHyst)
+          }
+        }
+      }
+    }
+
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousemove', handleMouseMove)
+    }
+  }, [draggingTempHandle])
 
   // Helper to get alert values
   const getAlert = (id: string) => entities[`binary_sensor-alert__${id}`]?.value === true
@@ -351,16 +478,23 @@ export default function Dashboard() {
   const humidity = parseFloat((getSensor('humidity') || getSensor('current_humidity') || 0) as string) || 0
   const waterLevel = parseFloat((getSensor('water_level_percent') || getSensor('water_level') || 0) as string) || 0
   const targetHumidity = parseFloat((getNumber('target_humidity') || 0) as string) || 0
-  const tempMin = parseFloat((getNumber('temperature__minimum') || 0) as string) || 0
-  const tempMax = parseFloat((getNumber('temperature__maximum') || 0) as string) || 0
+
+  // Temperature control values
+  const tempControlEnabled = entities['switch-temperature_control_enabled']?.state === 'ON' || entities['switch-temperature_control_enabled']?.value === true
+  const tempTarget = parseFloat((getNumber('temperature__target') || 0) as string) || 0
+  const tempHysteresis = parseFloat((getNumber('temperature__hysteresis') || 0) as string) || 0
+  const tempMin = tempControlEnabled ? tempTarget - tempHysteresis : 0
+  const tempMax = tempControlEnabled ? tempTarget + tempHysteresis : 0
 
   // Calculate status indicators
-  const tempInRange = temp >= tempMin && temp <= tempMax
+  const tempInRange = tempControlEnabled ? (temp >= tempMin && temp <= tempMax) : true
   const humidityInRange = Math.abs(humidity - targetHumidity) <= 2
 
   // Get device on/off states
   const humidifierOn = entities['switch-humidifier']?.state === 'ON' || entities['binary_sensor-humidifier_on']?.value === true
   const airExchangeOn = entities['switch-air_exchange']?.state === 'ON' || entities['binary_sensor-air_exchange_on']?.value === true
+  const isWaterCalibrated = entities['binary_sensor-water_calibrated']?.state === 'ON' || entities['binary_sensor-water_calibrated']?.value === true
+  const heatRequested = entities['binary_sensor-heat_requested']?.state === 'ON' || entities['binary_sensor-heat_requested']?.value === true
 
   // Calculate if lights are on based on schedule
   const now = new Date()
@@ -434,24 +568,30 @@ export default function Dashboard() {
       <div className="main-grid">
         {/* Row 1 */}
         <div className="card card-temp" onClick={() => setModal({ type: 'temperature' })}>
+          {heatRequested && <div className="status-rectangle heating-badge">HEATING</div>}
           <div className="card-icon">🌡️</div>
           <div className="card-label">Temperature</div>
           <div className="card-value">
             {temp.toFixed(1)}
             <span className="card-unit">°C</span>
-            <span
-              className={`status-badge ${tempInRange ? 'status-ok' : 'status-warn'}`}
-              title={tempInRange ? 'Temperature is within range' : `Temperature outside range (${tempMin}°-${tempMax}°C)`}
-            >
-              {tempInRange ? '✓' : '⚠'}
-            </span>
+            {tempControlEnabled && (
+              <span
+                className={`status-badge ${tempInRange ? 'status-ok' : 'status-warn'}`}
+                title={tempInRange ? 'Temperature is within range' : `Temperature outside range (${tempMin.toFixed(1)}°-${tempMax.toFixed(1)}°C)`}
+              >
+                {tempInRange ? '✓' : '⚠'}
+              </span>
+            )}
           </div>
-          <div className="card-range">
-            {tempMin}° - {tempMax}°
-          </div>
+          {tempControlEnabled && (
+            <div className="card-range">
+              {tempMin.toFixed(1)}° - {tempMax.toFixed(1)}°
+            </div>
+          )}
         </div>
 
         <div className="card card-humidity" onClick={() => setModal({ type: 'humidity' })}>
+          {humidifierOn && <div className="status-rectangle humidifying-badge">HUMIDIFYING</div>}
           <div className="card-icon">💧</div>
           <div className="card-label">Humidity</div>
           <div className="card-value">
@@ -466,11 +606,11 @@ export default function Dashboard() {
           </div>
           <div className="card-target">
             Target: {targetHumidity}%
-            {humidifierOn && <span className="device-on-badge">ON</span>}
           </div>
         </div>
 
         <div className="card card-air" onClick={() => setModal({ type: 'air' })}>
+          {airExchangeOn && <div className="status-rectangle running-badge">RUNNING</div>}
           <div className="card-icon">🌀</div>
           <div className="card-label">Air Exchange</div>
           <div className="card-value">
@@ -479,7 +619,6 @@ export default function Dashboard() {
           </div>
           <div className="card-detail">
             {getNumber('air_exchange__run_duration__s_')}s @ {getNumber('air_exchange__speed')}%
-            {airExchangeOn && <span className="device-on-badge">ON</span>}
           </div>
         </div>
 
@@ -497,13 +636,14 @@ export default function Dashboard() {
         </div>
 
         <div className="card card-water" onClick={() => setModal({ type: 'water' })}>
+          {!isWaterCalibrated && <div className="status-rectangle humidifying-badge">NOT CALIBRATED</div>}
           <div className="card-icon">🚰</div>
           <div className="card-label">Water Level</div>
           <div className="card-value">
             {waterLevel.toFixed(0)}
             <span className="card-unit">%</span>
           </div>
-          <div className="card-detail">Click to calibrate</div>
+          {!isWaterCalibrated && <div className="card-detail">Click to calibrate</div>}
         </div>
 
         <div className="card card-settings" onClick={() => setModal({ type: 'settings' })}>
@@ -528,7 +668,11 @@ export default function Dashboard() {
       </div>
 
       {/* Modals */}
-      {modal.type === 'water' && (
+      {modal.type === 'water' && (() => {
+        const isCalibrated = entities['binary_sensor-water_calibrated']?.state === 'ON' ||
+                           entities['binary_sensor-water_calibrated']?.value === true
+
+        return (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
@@ -547,22 +691,33 @@ export default function Dashboard() {
                 </div>
               )}
 
-              <button
-                className="calibrate-button"
-                onClick={() => {
-                  setModal({ type: 'calibrate' })
-                }}
-              >
-                Calibrate Water Level
-              </button>
+              {!isCalibrated && (
+                <>
+                  <button
+                    className="calibrate-button"
+                    onClick={() => {
+                      setModal({ type: 'calibrate' })
+                    }}
+                  >
+                    Calibrate Water Level
+                  </button>
 
-              <div className="calibrate-info">
-                Calibration sets the "dry tank" baseline for accurate water level measurement.
-              </div>
+                  <div className="calibrate-info">
+                    Calibration sets the "dry tank" baseline for accurate water level measurement.
+                  </div>
+                </>
+              )}
+
+              {isCalibrated && (
+                <div className="calibrate-info" style={{ marginTop: '1rem', color: '#4ade80' }}>
+                  ✓ Sensor is calibrated
+                </div>
+              )}
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {modal.type === 'calibrate' && (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
@@ -576,6 +731,9 @@ export default function Dashboard() {
               <p className="calibrate-instruction">
                 This will set the current sensor readings as the "dry" baseline for accurate water level measurement.
               </p>
+              <p className="calibrate-instruction">
+                <strong>Note:</strong> You will need to press the calibration button TWICE to confirm - once for a warning, then again to actually calibrate.
+              </p>
             </div>
             <div className="modal-buttons">
               <button className="modal-cancel" onClick={() => setModal({ type: null })}>
@@ -584,9 +742,14 @@ export default function Dashboard() {
               <button
                 className="modal-confirm"
                 onClick={() => {
+                  // Press once to warn, press again to calibrate
                   handleButtonClick('calibrate_dry_tank')
-                  setCalibrationSuccess(true)
-                  setTimeout(() => setCalibrationSuccess(false), 10000)
+                  // Press second time after short delay
+                  setTimeout(() => {
+                    handleButtonClick('calibrate_dry_tank')
+                    setCalibrationSuccess(true)
+                    setTimeout(() => setCalibrationSuccess(false), 10000)
+                  }, 500)
                   setModal({ type: 'water' })
                 }}
               >
@@ -611,8 +774,13 @@ export default function Dashboard() {
 
         // Calculate positions on 60-100% scale
         const targetPos = ((target - 60) / 40) * 100
-        const lowerPos = ((lowerBound - 60) / 40) * 100
-        const upperPos = ((upperBound - 60) / 40) * 100
+
+        // Scale hysteresis visually by 2x for easier interaction
+        const visualHysteresis = hysteresis * 2
+        const lowerBoundVisual = target - visualHysteresis
+        const upperBoundVisual = target + visualHysteresis
+        const lowerPos = ((lowerBoundVisual - 60) / 40) * 100
+        const upperPos = ((upperBoundVisual - 60) / 40) * 100
 
         // Offset for edge handles so they don't overlap when hysteresis is 0
         const handleOffset = 2 // pixels
@@ -626,35 +794,59 @@ export default function Dashboard() {
                 <div className="control-group">
                   <label>Target: {target.toFixed(1)}% ± {hysteresis.toFixed(2)}% • Turns ON below {lowerBound.toFixed(1)}%, OFF {upperBound >= 100 ? 'at' : 'above'} {upperBound.toFixed(1)}%</label>
                   <div className="dual-slider-container humidity-slider-container">
-                    {/* Target handle (center) - above track */}
+                    {/* Target handle (center) - green circle */}
                     <div
                       className="humidity-handle-center"
                       style={{
                         position: 'absolute',
                         left: `${targetPos}%`,
-                        top: '15px',
+                        top: '26px',
                         transform: 'translateX(-50%)',
+                        width: '26px',
+                        height: '26px',
+                        background: '#22c55e',
+                        border: '3px solid white',
+                        borderRadius: '50%',
                         cursor: 'grab',
-                        zIndex: 10
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        zIndex: 20
                       }}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         setDraggingHumidityHandle('target')
                       }}
-                    >
-                      <div className="humidity-tick-center">💧</div>
-                    </div>
+                    />
 
-                    <div className="humidity-slider-track">
-                      {/* Green segment for acceptable humidity range */}
-                      <div
-                        className="dual-slider-range humidity-slider-on"
-                        style={{
-                          left: `${Math.max(0, lowerPos)}%`,
-                          width: `${Math.max(0, Math.min(100 - lowerPos, upperPos - lowerPos))}%`
-                        }}
-                      />
-                    </div>
+                    {/* Humidity slider track with gradient */}
+                    <div
+                      className="humidity-slider-track"
+                      style={{
+                        position: 'absolute',
+                        top: '35px',
+                        left: 0,
+                        right: 0,
+                        height: '8px',
+                        background: 'linear-gradient(to right, #f97316 0%, #3b82f6 100%)',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    />
+
+                    {/* Hysteresis band - the acceptable range */}
+                    <div
+                      className="humidity-band"
+                      style={{
+                        position: 'absolute',
+                        top: '30px',
+                        left: `${lowerPos}%`,
+                        width: `${upperPos - lowerPos}%`,
+                        height: '18px',
+                        background: 'rgba(34, 197, 94, 0.2)',
+                        border: '2px solid rgba(34, 197, 94, 0.5)',
+                        borderRadius: '4px',
+                        pointerEvents: 'none'
+                      }}
+                    />
 
                     {/* Lower bound handle - on bottom, slightly left */}
                     <div
@@ -662,7 +854,7 @@ export default function Dashboard() {
                       style={{
                         position: 'absolute',
                         left: `calc(${Math.max(0, lowerPos)}% - ${handleOffset}px)`,
-                        top: '68px',
+                        top: '63px',
                         transform: 'translateX(-50%)',
                         cursor: 'grab',
                         zIndex: 10
@@ -681,7 +873,7 @@ export default function Dashboard() {
                       style={{
                         position: 'absolute',
                         left: `calc(${Math.min(100, upperPos)}% + ${handleOffset}px)`,
-                        top: '68px',
+                        top: '63px',
                         transform: 'translateX(-50%)',
                         cursor: 'grab',
                         zIndex: 10
@@ -730,45 +922,206 @@ export default function Dashboard() {
         )
       })()}
 
-      {modal.type === 'temperature' && (
+      {modal.type === 'temperature' && (() => {
+        const tempHysteresis = Number(getNumber('temperature__hysteresis')) || 1
+        const tempTarget = Number(getNumber('temperature__target')) || 22
+
+        // Initialize ref with current values ONLY if not dragging
+        if (!draggingTempHandle) {
+          tempDragValues.current = { target: tempTarget, hysteresis: tempHysteresis }
+        }
+
+        const lowerTempBound = tempTarget - tempHysteresis
+        const upperTempBound = tempTarget + tempHysteresis
+
+        // Calculate positions on 15-35°C scale
+        const targetTempPos = ((tempTarget - 15) / 20) * 100
+        const lowerTempPos = ((lowerTempBound - 15) / 20) * 100
+        const upperTempPos = ((upperTempBound - 15) / 20) * 100
+
+        // Offset for edge handles so they don't overlap when hysteresis is 0
+        const handleOffset = -10 // pixels - negative to move left
+
+        return (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
-            <h2>🌡️ Temperature Monitoring</h2>
+            <h2>🌡️ Temperature Control</h2>
             <div className="modal-content">
-              <div className="temp-disclaimer">
-                ℹ️ <strong>Note:</strong> OpenShrooly does not actively control temperature. These settings only trigger warnings when the environment gets too hot or cold. Temperature should be managed by your growing environment (room AC, heater, etc.).
+              <div className="control-group" style={{ marginBottom: '20px' }}>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={entities['switch-temperature_control_enabled']?.state === 'ON' || entities['switch-temperature_control_enabled']?.value === true}
+                    onChange={(e) =>
+                      handleSwitchChange('switch-temperature_control_enabled', e.target.checked)
+                    }
+                  />
+                  <span style={{ marginLeft: '8px' }}>Enable Temperature Control</span>
+                </label>
               </div>
-              <div className="control-group">
-                <label>Minimum: {getNumber('temperature__minimum')}°C</label>
-                <input
-                  type="number"
-                  min="10"
-                  max="25"
-                  step="0.5"
-                  value={getNumber('temperature__minimum') as number}
-                  onChange={(e) =>
-                    handleNumberChange('number-temperature__minimum', parseFloat(e.target.value))
-                  }
-                />
-              </div>
-              <div className="control-group">
-                <label>Maximum: {getNumber('temperature__maximum')}°C</label>
-                <input
-                  type="number"
-                  min="20"
-                  max="35"
-                  step="0.5"
-                  value={getNumber('temperature__maximum') as number}
-                  onChange={(e) =>
-                    handleNumberChange('number-temperature__maximum', parseFloat(e.target.value))
-                  }
-                />
+
+              {(entities['switch-temperature_control_enabled']?.state === 'ON' || entities['switch-temperature_control_enabled']?.value === true) && (
+                <>
+                  <div className="temp-disclaimer" style={{ marginBottom: '20px' }}>
+                    ⚠️ <strong>Important:</strong> OpenShrooly can request heating, but external heating equipment must be controlled via Home Assistant. The "Heat Requested" binary sensor signals when heating is needed.
+                  </div>
+
+                  <div className="control-group">
+                    <label style={{ marginBottom: '10px', display: 'block' }}>
+                      Target Temperature: {tempTarget.toFixed(1)}°C (±{tempHysteresis.toFixed(2)}°C)
+                    </label>
+                    <div style={{ position: 'relative', height: '100px', marginBottom: '10px' }}>
+                      {/* Temperature slider track */}
+                      <div
+                        className="temperature-slider-track"
+                        style={{
+                          position: 'absolute',
+                          top: '35px',
+                          left: 0,
+                          right: 0,
+                          height: '8px',
+                          background: 'linear-gradient(to right, #60a5fa 0%, #ef4444 100%)',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      />
+
+                      {/* Hysteresis band - the acceptable range */}
+                      <div
+                        className="temperature-band"
+                        style={{
+                          position: 'absolute',
+                          top: '30px',
+                          left: `${lowerTempPos}%`,
+                          width: `${upperTempPos - lowerTempPos}%`,
+                          height: '18px',
+                          background: 'rgba(34, 197, 94, 0.2)',
+                          border: '2px solid rgba(34, 197, 94, 0.5)',
+                          borderRadius: '4px',
+                          pointerEvents: 'none'
+                        }}
+                      />
+
+                      {/* Target handle - center point */}
+                      <div
+                        className="temperature-handle-center"
+                        style={{
+                          position: 'absolute',
+                          left: `${targetTempPos}%`,
+                          top: '26px',
+                          transform: 'translateX(-50%)',
+                          width: '26px',
+                          height: '26px',
+                          background: '#22c55e',
+                          border: '3px solid white',
+                          borderRadius: '50%',
+                          cursor: 'grab',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                          zIndex: 20
+                        }}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setDraggingTempHandle('target')
+                        }}
+                      />
+
+                      {/* Lower bound handle - on bottom, left */}
+                      <div
+                        className="temperature-handle-edge"
+                        style={{
+                          position: 'absolute',
+                          left: `calc(${Math.max(0, lowerTempPos)}% + ${handleOffset}px)`,
+                          top: '63px',
+                          transform: 'translateX(-50%)',
+                          cursor: 'grab',
+                          zIndex: 10
+                        }}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setDraggingTempHandle('lower')
+                        }}
+                      >
+                        <div className="temperature-tick">◀</div>
+                      </div>
+
+                      {/* Upper bound handle - on bottom, right */}
+                      <div
+                        className="temperature-handle-edge"
+                        style={{
+                          position: 'absolute',
+                          left: `calc(${Math.min(100, upperTempPos)}% - ${handleOffset}px)`,
+                          top: '63px',
+                          transform: 'translateX(-50%)',
+                          cursor: 'grab',
+                          zIndex: 10
+                        }}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setDraggingTempHandle('upper')
+                        }}
+                      >
+                        <div className="temperature-tick">▶</div>
+                      </div>
+
+                      {/* Temperature scale below track */}
+                      <div className="dual-slider-scale" style={{ top: '80px' }}>
+                        {[15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35].map(val => (
+                          <div
+                            key={val}
+                            className="scale-mark"
+                            style={{ left: `${((val - 15) / 20) * 100}%` }}
+                          >
+                            <div className="scale-tick"></div>
+                            <div className="scale-label">{val}°C</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Temperature Warning Thresholds Section */}
+              <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '15px', color: '#6b7280' }}>
+                  Temperature Warnings
+                </h3>
+                <div className="temp-disclaimer" style={{ marginBottom: '15px' }}>
+                  ℹ️ <strong>Note:</strong> These thresholds only trigger warnings. Home Assistant integration is required to receive and act on temperature warning alerts.
+                </div>
+                <div className="control-group">
+                  <label>Warning Minimum: {getNumber('temperature__warning_minimum')}°C</label>
+                  <input
+                    type="number"
+                    min="10"
+                    max="25"
+                    step="0.5"
+                    value={getNumber('temperature__warning_minimum') as number}
+                    onChange={(e) =>
+                      handleNumberChange('number-temperature__warning_minimum', parseFloat(e.target.value))
+                    }
+                  />
+                </div>
+                <div className="control-group">
+                  <label>Warning Maximum: {getNumber('temperature__warning_maximum')}°C</label>
+                  <input
+                    type="number"
+                    min="20"
+                    max="35"
+                    step="0.5"
+                    value={getNumber('temperature__warning_maximum') as number}
+                    onChange={(e) =>
+                      handleNumberChange('number-temperature__warning_maximum', parseFloat(e.target.value))
+                    }
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {modal.type === 'air' && (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
@@ -841,7 +1194,6 @@ export default function Dashboard() {
                     className="slider-handle-container"
                     style={{ left: `${(lightSunrise / 24) * 100}%`, top: '15px' }}
                     onMouseDown={(e) => {
-                      console.log('Sunrise mousedown')
                       e.preventDefault()
                       setDraggingHandle('sunrise')
                     }}
@@ -854,7 +1206,6 @@ export default function Dashboard() {
                     className="slider-handle-container"
                     style={{ left: `${(lightSunset / 24) * 100}%`, top: '15px' }}
                     onMouseDown={(e) => {
-                      console.log('Sunset mousedown')
                       e.preventDefault()
                       setDraggingHandle('sunset')
                     }}
@@ -1005,6 +1356,79 @@ export default function Dashboard() {
                     <option value="Europe/Berlin">Berlin</option>
                     <option value="Asia/Tokyo">Tokyo</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="settings-section">
+                <h3>Firmware Update (OTA)</h3>
+                <div className="control-group">
+                  <label>Upload Firmware (.bin file)</label>
+                  <input
+                    type="file"
+                    accept=".bin"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setOtaFile(file)
+                        setOtaStatus('idle')
+                        setOtaMessage('')
+                      }
+                    }}
+                    disabled={otaStatus === 'uploading'}
+                    style={{
+                      padding: '8px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '6px',
+                      marginTop: '8px'
+                    }}
+                  />
+                  {otaFile && (
+                    <div style={{ marginTop: '10px', fontSize: '14px', color: '#64748b' }}>
+                      Selected: {otaFile.name} ({(otaFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </div>
+                  )}
+                  <button
+                    onClick={handleOtaUpload}
+                    disabled={!otaFile || otaStatus === 'uploading'}
+                    style={{
+                      marginTop: '12px',
+                      padding: '10px 20px',
+                      backgroundColor: otaStatus === 'uploading' ? '#94a3b8' : '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: otaStatus === 'uploading' ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {otaStatus === 'uploading' ? 'Uploading...' : 'Upload Firmware'}
+                  </button>
+                  {otaStatus !== 'idle' && (
+                    <div style={{ marginTop: '12px' }}>
+                      {otaStatus === 'uploading' && (
+                        <div style={{ width: '100%', backgroundColor: '#e2e8f0', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              width: `${otaProgress}%`,
+                              backgroundColor: '#3b82f6',
+                              height: '100%',
+                              transition: 'width 0.3s ease'
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          fontSize: '14px',
+                          color: otaStatus === 'success' ? '#22c55e' : otaStatus === 'error' ? '#ef4444' : '#64748b'
+                        }}
+                      >
+                        {otaMessage}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
