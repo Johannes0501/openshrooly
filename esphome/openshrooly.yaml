@@ -124,7 +124,11 @@ interval:
 
   - interval: 30s # Every 30 seconds, run the water level calculator
     then:
-      - script.execute: water_level_calculator          
+      - script.execute: water_level_calculator
+
+  - interval: 60s # Every 60 seconds, log data point
+    then:
+      - script.execute: data_logger          
 
   # Update LVGL labels every 10 seconds
   - interval: 10s

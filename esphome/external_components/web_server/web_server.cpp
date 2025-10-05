@@ -2242,13 +2242,10 @@ void WebServer::handle_history_request(AsyncWebServerRequest *request) {
     limit = request->getParam("limit")->value().toInt();
   }
 
-  // Build JSON response manually to avoid memory issues
+  // TODO: Implement actual history data retrieval
+  // For now, return empty arrays - the client will handle this gracefully
   std::string json = "{";
-
-  // Use the globals directly via ESPHome's ID system
-  // Note: This requires the globals to be accessible
-  // We'll generate the JSON in C++ lambda code
-  json += "\"count\":0,";  // Placeholder - will be replaced by lambda
+  json += "\"count\":0,";
   json += "\"temperature\":[],";
   json += "\"humidity\":[],";
   json += "\"devices\":[]";

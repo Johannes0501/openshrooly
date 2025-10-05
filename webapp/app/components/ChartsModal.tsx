@@ -7,7 +7,8 @@ interface ChartsModalProps {
 }
 
 interface HistoryData {
-  timestamps: number[]
+  timestamps?: number[]
+  count?: number
   temperature: number[]
   humidity: number[]
   devices: number[]
@@ -63,8 +64,8 @@ export default function ChartsModal({ onClose }: ChartsModalProps) {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        // Calculate how many data points to fetch (30s intervals)
-        const limit = Math.floor((timeRange * 60 * 60) / 30)
+        // Calculate how many data points to fetch (60s intervals)
+        const limit = Math.floor((timeRange * 60 * 60) / 60)
         const response = await fetch(`/api/history?limit=${limit}`)
 
         if (!response.ok) {
@@ -96,13 +97,20 @@ export default function ChartsModal({ onClose }: ChartsModalProps) {
   const drawCharts = () => {
     if (!historyData || !window.google) return
 
+    // Generate timestamps if not provided (assume 1 minute intervals, most recent is current time)
+    const timestamps = historyData.timestamps ||
+      historyData.temperature.map((_, i) => {
+        const now = Math.floor(Date.now() / 1000)
+        return now - (historyData.temperature.length - 1 - i) * 60
+      })
+
     // Temperature Chart
     if (tempChartRef.current && historyData.temperature.length > 0) {
       const tempData = new window.google.visualization.DataTable()
       tempData.addColumn('datetime', 'Time')
       tempData.addColumn('number', 'Temperature')
 
-      const tempRows = historyData.timestamps.map((ts, i) => [
+      const tempRows = timestamps.map((ts, i) => [
         new Date(ts * 1000),
         historyData.temperature[i]
       ])
@@ -142,7 +150,7 @@ export default function ChartsModal({ onClose }: ChartsModalProps) {
       humData.addColumn('datetime', 'Time')
       humData.addColumn('number', 'Humidity')
 
-      const humRows = historyData.timestamps.map((ts, i) => [
+      const humRows = timestamps.map((ts, i) => [
         new Date(ts * 1000),
         historyData.humidity[i]
       ])
@@ -186,7 +194,7 @@ export default function ChartsModal({ onClose }: ChartsModalProps) {
       devData.addColumn('number', 'Humidifier')
       devData.addColumn('number', 'Air Exchange')
 
-      const devRows = historyData.timestamps.map((ts, i) => {
+      const devRows = timestamps.map((ts, i) => {
         const state = historyData.devices[i]
         return [
           new Date(ts * 1000),
@@ -309,7 +317,7 @@ export default function ChartsModal({ onClose }: ChartsModalProps) {
             <div ref={devicesChartRef}></div>
           </div>
 
-          {historyData && historyData.timestamps.length === 0 && (
+          {historyData && historyData.temperature.length === 0 && (
             <div className="charts-no-data">
               <p>No historical data available yet.</p>
               <p className="charts-hint">Data will appear after the system has been running for a while.</p>
