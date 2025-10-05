@@ -574,14 +574,6 @@ export default function Dashboard() {
           <div className="card-value">
             {temp.toFixed(1)}
             <span className="card-unit">°C</span>
-            {tempControlEnabled && (
-              <span
-                className={`status-badge ${tempInRange ? 'status-ok' : 'status-warn'}`}
-                title={tempInRange ? 'Temperature is within range' : `Temperature outside range (${tempMin.toFixed(1)}°-${tempMax.toFixed(1)}°C)`}
-              >
-                {tempInRange ? '✓' : '⚠'}
-              </span>
-            )}
           </div>
           {tempControlEnabled && (
             <div className="card-range">
@@ -597,12 +589,6 @@ export default function Dashboard() {
           <div className="card-value">
             {humidity.toFixed(1)}
             <span className="card-unit">%</span>
-            <span
-              className={`status-badge ${humidityInRange ? 'status-ok' : 'status-warn'}`}
-              title={humidityInRange ? 'Humidity is on target' : `Humidity off target (${targetHumidity}%)`}
-            >
-              {humidityInRange ? '✓' : '⚠'}
-            </span>
           </div>
           <div className="card-target">
             Target: {targetHumidity}%
@@ -643,7 +629,6 @@ export default function Dashboard() {
             {waterLevel.toFixed(0)}
             <span className="card-unit">%</span>
           </div>
-          {!isWaterCalibrated && <div className="card-detail">Click to calibrate</div>}
         </div>
 
         <div className="card card-settings" onClick={() => setModal({ type: 'settings' })}>
@@ -663,6 +648,10 @@ export default function Dashboard() {
         <button onClick={() => setShowLicense(true)} className="footer-link footer-button">
           Open Source (MIT License)
         </button>
+        <span className="footer-separator">•</span>
+        <a href="https://esphome.io" target="_blank" rel="noopener noreferrer" className="footer-link">
+          Powered by ESPHome
+        </a>
         <span className="footer-separator">•</span>
         <span className="footer-text">No Warranty</span>
       </div>

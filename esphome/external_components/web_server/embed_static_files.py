@@ -102,7 +102,7 @@ namespace web_server {
 
             # Generate variable name
             var_name = f"STATIC_FILE_{file_index}"
-            url = f"/app/{file_path}"
+            url = f"/{file_path}"
 
             # Add to header
             header_content += f"extern const uint8_t {var_name}_DATA[];\n"

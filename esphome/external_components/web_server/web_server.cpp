@@ -1740,7 +1740,7 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) const {
     return true;
 
 #ifdef USE_ARDUINO
-  if (request->url() == "/events") {
+  if (request->url() == "/events" || request->url() == "/esphome/events") {
     return true;
   }
 #endif
@@ -1767,11 +1767,23 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) const {
   const auto &url = request->url();
 
 #ifdef USE_WEBSERVER_APP_HTML_INCLUDE
-  if (url.startsWith("/app")) {
+  // Only catch specific /esphome URLs (index page), let entity URLs fall through
+  if (url == "/esphome" || url == "/esphome/" || url == "/esphome/index.html") {
     return true;
   }
 #endif
-  UrlMatch match = match_url(url.c_str(), url.length(), true);
+
+  // Check if URL has /esphome/ prefix and strip it for entity matching
+  const char* url_for_matching = url.c_str();
+  size_t url_len = url.length();
+
+  if (url.startsWith("/esphome/") && url.length() > 9) {
+    // Strip the /esphome prefix, keeping the trailing /
+    url_for_matching = url.c_str() + 8;  // Skip "/esphome"
+    url_len = url.length() - 8;
+  }
+
+  UrlMatch match = match_url(url_for_matching, url_len, true);
   if (!match.valid)
     return false;
 #ifdef USE_SENSOR
@@ -1874,20 +1886,29 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) const {
     return true;
 #endif
 
+#ifdef USE_WEBSERVER_APP_HTML_INCLUDE
+  // Catch all other URLs for the app (SPA routing and static files)
+  return true;
+#else
   return false;
+#endif
 }
 void WebServer::handleRequest(AsyncWebServerRequest *request) {
   // Store the URL to prevent temporary string destruction
   const auto &url = request->url();
 
+#ifdef USE_ARDUINO
+  // Handle events FIRST before /esphome prefix check
+  if (url == "/events" || url == "/esphome/events") {
+    this->events_.add_new_client(this, request);
+    return;
+  }
+#endif
+
 #ifdef USE_WEBSERVER_APP_HTML_INCLUDE
-  if (url.startsWith("/app")) {
-    // Check if it's the main HTML or a static asset
-    if (url == "/app" || url == "/app/" || url == "/app/index.html") {
-      this->handle_app_request(request);
-    } else {
-      this->handle_static_file_request(request);
-    }
+  // Handle ESPHome index page
+  if (url == "/esphome" || url == "/esphome/" || url == "/esphome/index.html") {
+    this->handle_index_request(request);
     return;
   }
 
@@ -1899,16 +1920,13 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
 #endif
 
   if (url == "/") {
+#ifdef USE_WEBSERVER_APP_HTML_INCLUDE
+    this->handle_app_request(request);
+#else
     this->handle_index_request(request);
-    return;
-  }
-
-#ifdef USE_ARDUINO
-  if (url == "/events") {
-    this->events_.add_new_client(this, request);
-    return;
-  }
 #endif
+    return;
+  }
 
 #ifdef USE_WEBSERVER_CSS_INCLUDE
   if (url == "/0.css") {
@@ -1932,7 +1950,17 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
 #endif
 
   // See comment in canHandle() for why we store the URL reference
-  UrlMatch match = match_url(url.c_str(), url.length(), false);
+  // Check if URL has /esphome/ prefix and strip it for entity handlers
+  const char* url_for_matching = url.c_str();
+  size_t url_len = url.length();
+
+  if (url.startsWith("/esphome/") && url.length() > 9) {
+    // Strip the /esphome prefix, keeping the trailing /
+    url_for_matching = url.c_str() + 8;  // Skip "/esphome"
+    url_len = url.length() - 8;
+  }
+
+  UrlMatch match = match_url(url_for_matching, url_len, false);
 
 #ifdef USE_SENSOR
   if (match.domain_equals("sensor")) {
@@ -2069,9 +2097,22 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
   }
 #endif
 
-  // No matching handler found - send 404
+  // No matching handler found
+#ifdef USE_WEBSERVER_APP_HTML_INCLUDE
+  // For the app, handle this as either a static file or an app route (SPA routing)
+  ESP_LOGV(TAG, "Request for unknown URL, checking if app resource: %s", request->url().c_str());
+  if (url.indexOf('.') > 0) {
+    // Has a file extension, treat as static file
+    this->handle_static_file_request(request);
+  } else {
+    // No extension, treat as an app route (SPA routing) - serve the main app HTML
+    this->handle_app_request(request);
+  }
+#else
+  // No app configured, send 404
   ESP_LOGV(TAG, "Request for unknown URL: %s", request->url().c_str());
   request->send(404, "text/plain", "Not Found");
+#endif
 }
 
 bool WebServer::isRequestHandlerTrivial() const { return false; }
