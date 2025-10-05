@@ -58,3 +58,40 @@ text_sensor:
       } else {
         return {"✅ Calibrated"};
       }
+
+  # WiFi network mode and info
+  - platform: template
+    name: "WiFi Mode"
+    id: wifi_mode
+    icon: mdi:wifi
+    update_interval: 5s
+    lambda: |-
+      if (WiFi.isConnected()) {
+        return {"Station"};
+      } else {
+        return {"Access Point"};
+      }
+
+  - platform: template
+    name: "WiFi SSID"
+    id: wifi_ssid
+    icon: mdi:wifi-marker
+    update_interval: 5s
+    lambda: |-
+      if (WiFi.isConnected()) {
+        return {WiFi.SSID().c_str()};
+      } else {
+        return {"OpenShrooly"};
+      }
+
+  - platform: template
+    name: "IP Address"
+    id: ip_address
+    icon: mdi:ip-network
+    update_interval: 5s
+    lambda: |-
+      if (WiFi.isConnected()) {
+        return {WiFi.localIP().toString().c_str()};
+      } else {
+        return {"192.168.4.1"};
+      }

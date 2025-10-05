@@ -58,6 +58,7 @@ esp32:
   board: esp32-s3-devkitc-1
   framework:
     type: arduino
+  partitions: partitions_custom.csv
 
 logger:
   level: INFO
@@ -67,7 +68,7 @@ api:
   reboot_timeout: 0s
 
 ota:
-  - platform: esphome
+  platform: esphome
 
 
 external_components:

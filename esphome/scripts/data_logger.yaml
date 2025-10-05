@@ -1,0 +1,61 @@
+# ========================================================================
+# DATA LOGGER SCRIPT
+# Logs temperature, humidity, and device states to RAM-based circular buffers
+# Runs every 30 seconds to collect 24 hours of data (2880 points max)
+# ========================================================================
+
+script:
+  - id: data_logger
+    mode: single
+    then:
+      - lambda: |-
+          // Maximum number of data points (24 hours at 30-second intervals)
+          const int MAX_HISTORY = 2880;
+
+          // Initialize vectors on first run
+          if (id(history_timestamps).size() == 0) {
+            id(history_timestamps).reserve(MAX_HISTORY);
+            id(history_temperature).reserve(MAX_HISTORY);
+            id(history_humidity).reserve(MAX_HISTORY);
+            id(history_device_states).reserve(MAX_HISTORY);
+          }
+
+          // Get current values
+          time_t now = id(sntp_time).now().timestamp;
+          float temp = id(sht41_temp).state;
+          float hum = id(sht41_humidity).state;
+
+          // Pack device states into a single byte
+          uint8_t states = 0;
+          if (id(lights_on_flag)) states |= 0x01;  // bit 0
+          if (id(humidifier_on_flag)) states |= 0x02;  // bit 1
+          if (id(air_exchange_on_flag)) states |= 0x04;  // bit 2
+
+          // Store data in circular buffer
+          int idx = id(history_index);
+
+          if (id(history_count) < MAX_HISTORY) {
+            // Still filling the buffer
+            id(history_timestamps).push_back(now);
+            id(history_temperature).push_back(temp);
+            id(history_humidity).push_back(hum);
+            id(history_device_states).push_back(states);
+            id(history_count) = id(history_count) + 1;
+          } else {
+            // Buffer is full, overwrite oldest entry
+            id(history_timestamps)[idx] = now;
+            id(history_temperature)[idx] = temp;
+            id(history_humidity)[idx] = hum;
+            id(history_device_states)[idx] = states;
+          }
+
+          // Increment index (circular)
+          id(history_index) = (idx + 1) % MAX_HISTORY;
+
+          ESP_LOGD("data_logger", "Logged data point %d: temp=%.1f, hum=%.1f, states=0x%02X",
+                   id(history_count), temp, hum, states);
+
+interval:
+  - interval: 30s
+    then:
+      - script.execute: data_logger

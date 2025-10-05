@@ -4,6 +4,7 @@ web_server:
   include_internal: true
   css_include: ../assets/esphome.css
   js_include: ../assets/esphome.js
+  app_html_include: ../webapp/out/index.html
   sorting_groups:
     - id: grp_air
       name: "Air Exchange"
