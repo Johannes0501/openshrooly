@@ -7,26 +7,50 @@ This creates the C++ code to serve all the static assets.
 import os
 import gzip
 from pathlib import Path
+import glob
 
-# Files needed from the Next.js build
-STATIC_FILES = {
-    "css": [
-        "_next/static/css/ea5220eeb0d2cb40.css",
-    ],
-    "js": [
-        "_next/static/chunks/webpack-060329e99419b364.js",
-        "_next/static/chunks/4bd1b696-c023c6e3521b1417.js",
-        "_next/static/chunks/255-0c3faaf82bb76988.js",
-        "_next/static/chunks/main-app-2d64801452f356c9.js",
-        "_next/static/chunks/app/page-70e781f122dd967a.js",
-        "_next/static/chunks/polyfills-42372ed130431b0a.js",
-    ],
-}
+def find_static_files(webapp_out_dir):
+    """Auto-discover static files from Next.js build output."""
+    webapp_path = Path(webapp_out_dir)
+
+    static_files = {
+        "css": [],
+        "js": []
+    }
+
+    # Find CSS files
+    css_files = list(webapp_path.glob("_next/static/css/*.css"))
+    for css_file in sorted(css_files):
+        rel_path = css_file.relative_to(webapp_path)
+        static_files["css"].append(str(rel_path))
+        print(f"Found CSS: {rel_path}")
+
+    # Find essential JS chunks in order
+    js_patterns = [
+        "_next/static/chunks/webpack-*.js",
+        "_next/static/chunks/4bd1b696-*.js",
+        "_next/static/chunks/255-*.js",
+        "_next/static/chunks/main-app-*.js",
+        "_next/static/chunks/app/page-*.js",
+        "_next/static/chunks/polyfills-*.js",
+    ]
+
+    for pattern in js_patterns:
+        js_files = list(webapp_path.glob(pattern))
+        for js_file in sorted(js_files):
+            rel_path = js_file.relative_to(webapp_path)
+            static_files["js"].append(str(rel_path))
+            print(f"Found JS: {rel_path}")
+
+    return static_files
 
 def generate_embedded_files(webapp_out_dir, output_header, output_cpp):
     """Generate header and cpp files with embedded static assets."""
 
     webapp_path = Path(webapp_out_dir)
+
+    # Auto-discover files
+    STATIC_FILES = find_static_files(webapp_out_dir)
 
     # Generate header file
     header_content = """// Auto-generated file - do not edit

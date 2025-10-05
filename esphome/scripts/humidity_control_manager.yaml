@@ -8,8 +8,8 @@
   then:
   - lambda: |-
       if (!isnan(id(humidity).state) && !isnan(id(target_humidity).state)) {
-        // Get the control mode
-        std::string mode = id(humidity_control_mode).state;
+        // Get hysteresis value
+        float hyst = id(humidity_hysteresis).state;
 
         // Use raw humidity sensor value
         float h = id(humidity).state;
@@ -39,24 +39,16 @@
           return;
         }
 
-        // Control logic based on selected mode
+        // Control logic with +/- hysteresis
+        // Turn ON when humidity drops below (target - hysteresis)
+        // Turn OFF when humidity rises above (target + hysteresis)
         bool should_turn_on = false;
         bool should_turn_off = false;
 
-        if (mode == "Set-Point On/Off") {
-          // Mode 1: Simple on/off at set point
-          if (!id(humidifier_on_flag) && h < t) {
-            should_turn_on = true;
-          } else if (id(humidifier_on_flag) && h >= t) {
-            should_turn_off = true;
-          }
-        } else if (mode == "2% Hysteresis Band") {
-          // Mode 2: 2% hysteresis band (on at t-2%, off at t)
-          if (!id(humidifier_on_flag) && h < t - 2.0f) {
-            should_turn_on = true;
-          } else if (id(humidifier_on_flag) && h >= t) {
-            should_turn_off = true;
-          }
+        if (!id(humidifier_on_flag) && h < t - hyst) {
+          should_turn_on = true;
+        } else if (id(humidifier_on_flag) && h >= t + hyst) {
+          should_turn_off = true;
         }
 
         // Execute control actions
@@ -89,21 +81,16 @@
         // Always publish status showing actual humidity
         float actual_humidity = id(humidity).state;  // Show actual current humidity
 
-        // Create mode-specific status string
-        std::string mode_info = "";
-        if (mode == "Set-Point On/Off") {
-          mode_info = str_sprintf("(SP: %.1f%%)", t);
-        } else if (mode == "2% Hysteresis Band") {
-          mode_info = str_sprintf("(%.1f-%.1f%%)", t - 2.0f, t);
-        }
+        // Create status string showing target +/- hysteresis range
+        std::string range_info = str_sprintf("(%.1f-%.1f%%)", t - hyst, t + hyst);
 
         if (id(humidifier_on_flag)) {
           id(humidifier_fan_status).publish_state(
-            str_sprintf("ON — humidity %.1f%% %s", actual_humidity, mode_info.c_str()).c_str()
+            str_sprintf("ON — humidity %.1f%% %s", actual_humidity, range_info.c_str()).c_str()
           );
         } else {
           id(humidifier_fan_status).publish_state(
-            str_sprintf("OFF — humidity %.1f%% %s", actual_humidity, mode_info.c_str()).c_str()
+            str_sprintf("OFF — humidity %.1f%% %s", actual_humidity, range_info.c_str()).c_str()
           );
         }
       }

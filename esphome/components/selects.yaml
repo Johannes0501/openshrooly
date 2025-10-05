@@ -204,19 +204,3 @@ select:
             // Force lighting schedule to recalculate with new timezone
             id(lighting_control_manager).execute();
 
-  # Humidity control mode selector
-  - platform: template
-    id: humidity_control_mode
-    name: "Humidity Control Mode"
-    icon: mdi:tune-variant
-    options:
-      - "Set-Point On/Off"
-      - "2% Hysteresis Band"
-    optimistic: true
-    restore_value: true
-    initial_option: "2% Hysteresis Band"
-    web_server:
-      sorting_group_id: grp_humidity
-      sorting_weight: 5
-    set_action:
-      - script.execute: humidity_control_manager

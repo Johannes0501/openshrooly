@@ -21,23 +21,26 @@ export default function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [modal, setModal] = useState<ModalState>({ type: null })
   const [timezone, setTimezone] = useState<string>('America/Denver')
-  const [humidityMode, setHumidityMode] = useState<string>('2% Hysteresis Band')
   const [calibrationSuccess, setCalibrationSuccess] = useState(false)
   const [lightSunrise, setLightSunrise] = useState<number>(8)
   const [lightSunset, setLightSunset] = useState<number>(20)
   const [lightDuration, setLightDuration] = useState<number>(12)
   const [luxValue, setLuxValue] = useState<number>(150)
+  const [draggingHandle, setDraggingHandle] = useState<'sunrise' | 'sunset' | null>(null)
+  const [draggingHumidityHandle, setDraggingHumidityHandle] = useState<'target' | 'lower' | 'upper' | null>(null)
+  const [showLicense, setShowLicense] = useState(false)
+
+  // Track humidity values during drag to avoid stale state issues
+  const humidityDragValues = useRef<{ target: number; hysteresis: number }>({ target: 70, hysteresis: 2 })
   const debounceTimers = useRef<{ [key: string]: NodeJS.Timeout }>({})
 
   useEffect(() => {
     const fetchData = async () => {
       const numbers = await api.getAllNumbers()
       const tz = await api.getSelect('timezone_select')
-      const mode = await api.getSelect('humidity_control_mode')
 
       setEntities((prev) => ({ ...prev, ...numbers }))
       if (tz?.state) setTimezone(tz.state)
-      if (mode?.state) setHumidityMode(mode.state)
       setLoading(false)
     }
 
@@ -54,12 +57,9 @@ export default function Dashboard() {
         }))
         setLastUpdate(new Date())
 
-        // Update timezone and humidity mode from events
+        // Update timezone from events
         if (event.id === 'select-timezone_select') {
           setTimezone(event.state)
-        }
-        if (event.id === 'select-humidity_control_mode') {
-          setHumidityMode(event.state)
         }
       }
     })
@@ -97,11 +97,6 @@ export default function Dashboard() {
   const handleTimezoneChange = async (tz: string) => {
     setTimezone(tz)
     await handleSelectChange('timezone_select', tz)
-  }
-
-  const handleHumidityModeChange = async (mode: string) => {
-    setHumidityMode(mode)
-    await handleSelectChange('humidity_control_mode', mode)
   }
 
   // Convert RGB 0-100 to hex color
@@ -157,16 +152,27 @@ export default function Dashboard() {
 
   const timeOptions = Array.from({ length: 48 }, (_, i) => i * 0.5)
 
-  // Lux value helpers - gentler logarithmic scale
+  // Lux value helpers - logarithmic scale where 0-1000 lux is half the slider
   const luxToSlider = (lux: number) => {
-    // Logarithmic scale: 0-2000 lux mapped to 0-100 slider
     if (lux <= 0) return 0
-    return Math.log2(lux + 1) / Math.log2(2001) * 100
+    // Use a custom scale where 1000 lux = 50% slider position
+    // log base chosen so that at 50%, we get 1000 lux
+    // At slider=50: lux = base^50 - 1 = 1000, so base^50 = 1001, base = 1001^(1/50)
+    const base = Math.pow(1001, 1/50)
+    // For max 4000 lux at slider=100: 4001 = base^100, so we scale accordingly
+    const maxLux = 4000
+    const scaledSlider = (Math.log(lux + 1) / Math.log(base))
+    // Scale to match 4000 lux at position 100
+    return Math.min(100, scaledSlider * (100 / Math.log(maxLux + 1) * Math.log(base)))
   }
 
   const sliderToLux = (slider: number) => {
-    // Inverse logarithmic scale
-    return Math.round(Math.pow(2, (slider / 100) * Math.log2(2001)) - 1)
+    // Inverse: if slider=50 should give 1000 lux
+    const base = Math.pow(1001, 1/50)
+    const maxLux = 4000
+    const scaleFactor = 100 / Math.log(maxLux + 1) * Math.log(base)
+    const actualPosition = slider / scaleFactor
+    return Math.round(Math.pow(base, actualPosition) - 1)
   }
 
   const handleSunriseChange = (newSunrise: number) => {
@@ -192,6 +198,8 @@ export default function Dashboard() {
     if (newSunset >= 24) {
       newSunset = newSunset % 24
     }
+    // Round to nearest 0.25 hour (15 min) to match dropdown options
+    newSunset = Math.round(newSunset * 4) / 4
     setLightSunset(newSunset)
 
     handleNumberChange('number-lights__duration__hours_', clampedDuration)
@@ -202,6 +210,121 @@ export default function Dashboard() {
     setLuxValue(lux)
     handleNumberChange('number-white_led_intensity', lux)
   }
+
+  const handleSliderDrag = useCallback((e: React.MouseEvent, trackRef: HTMLDivElement) => {
+    if (!draggingHandle) return
+
+    const rect = trackRef.getBoundingClientRect()
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
+    const percentage = x / rect.width
+    const hour = Math.round(percentage * 24 * 4) / 4 // Round to 0.25 increments (15 min)
+
+    if (draggingHandle === 'sunrise') {
+      handleSunriseChange(hour)
+    } else {
+      handleSunsetChange(hour)
+    }
+  }, [draggingHandle])
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      setDraggingHandle(null)
+    }
+    const handleMouseMove = (e: MouseEvent) => {
+      if (draggingHandle) {
+        const track = document.querySelector('.dual-slider-track') as HTMLDivElement
+        if (track) {
+          const rect = track.getBoundingClientRect()
+          const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
+          const percentage = x / rect.width
+          const hour = Math.round(percentage * 24 * 4) / 4 // Round to 0.25 increments (15 min)
+
+          if (draggingHandle === 'sunrise') {
+            handleSunriseChange(hour)
+          } else {
+            handleSunsetChange(hour)
+          }
+        }
+      }
+    }
+
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousemove', handleMouseMove)
+    }
+  }, [draggingHandle])
+
+  // Humidity slider drag handling
+  useEffect(() => {
+    const handleMouseUp = () => {
+      console.log('Humidity drag ended')
+      setDraggingHumidityHandle(null)
+    }
+    const handleMouseMove = (e: MouseEvent) => {
+      if (draggingHumidityHandle) {
+        const track = document.querySelector('.humidity-slider-track') as HTMLDivElement
+        if (track) {
+          const rect = track.getBoundingClientRect()
+          console.log('Track bounds:', rect.left, rect.right, rect.width)
+          const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
+          const percentage = x / rect.width
+          const humidity = 60 + (percentage * 40) // Map 0-100% of slider to 60-100% humidity
+          const roundedHumidity = Math.round(humidity * 2) / 2 // Round to 0.5%
+
+          console.log('Dragging:', draggingHumidityHandle, 'Mouse X:', e.clientX, 'Track X:', x, 'Percentage:', percentage, 'Humidity:', roundedHumidity)
+
+          // Use ref values for current drag state (more up-to-date than entity state)
+          const currentTarget = humidityDragValues.current.target
+          const currentHyst = humidityDragValues.current.hysteresis
+
+          console.log('Current state - Target:', currentTarget, 'Hysteresis:', currentHyst)
+
+          if (draggingHumidityHandle === 'target') {
+            // Dragging center - move target humidity
+            const clampedTarget = Math.max(60 + currentHyst, Math.min(100 - currentHyst, roundedHumidity))
+            console.log('Setting target to:', clampedTarget)
+            humidityDragValues.current.target = clampedTarget
+            handleNumberChange('number-target_humidity', clampedTarget)
+          } else if (draggingHumidityHandle === 'lower') {
+            // Dragging lower bound - adjust hysteresis
+            // Can't drag past the target (would be negative)
+            if (roundedHumidity > currentTarget) {
+              console.log('Lower bound past target, ignoring')
+              return
+            }
+            const newHyst = Math.min(5, currentTarget - roundedHumidity)
+            // Round to 0.25%, but if very close to 0, snap to 0
+            const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
+            console.log('Setting hysteresis (from lower) to:', roundedHyst, '(newHyst was:', newHyst, ')')
+            humidityDragValues.current.hysteresis = roundedHyst
+            handleNumberChange('number-humidity__hysteresis', roundedHyst)
+          } else if (draggingHumidityHandle === 'upper') {
+            // Dragging upper bound - adjust hysteresis
+            // Can't drag past the target (would be negative)
+            if (roundedHumidity < currentTarget) {
+              console.log('Upper bound past target, ignoring')
+              return
+            }
+            const newHyst = Math.min(5, roundedHumidity - currentTarget)
+            // Round to 0.25%, but if very close to 0, snap to 0
+            const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
+            console.log('Setting hysteresis (from upper) to:', roundedHyst, '(newHyst was:', newHyst, ')')
+            humidityDragValues.current.hysteresis = roundedHyst
+            handleNumberChange('number-humidity__hysteresis', roundedHyst)
+          }
+        }
+      }
+    }
+
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousemove', handleMouseMove)
+    }
+  }, [draggingHumidityHandle])
 
   // Helper to get alert values
   const getAlert = (id: string) => entities[`binary_sensor-alert__${id}`]?.value === true
@@ -391,10 +514,24 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Footer */}
+      <div className="footer">
+        <a href="https://openshrooly.com" target="_blank" rel="noopener noreferrer" className="footer-link">
+          OpenShrooly.com
+        </a>
+        <span className="footer-separator">•</span>
+        <button onClick={() => setShowLicense(true)} className="footer-link footer-button">
+          Open Source (MIT License)
+        </button>
+        <span className="footer-separator">•</span>
+        <span className="footer-text">No Warranty</span>
+      </div>
+
       {/* Modals */}
       {modal.type === 'water' && (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
             <h2>🚰 Water Level</h2>
             <div className="modal-content">
               <div className="water-level-display">
@@ -423,9 +560,6 @@ export default function Dashboard() {
                 Calibration sets the "dry tank" baseline for accurate water level measurement.
               </div>
             </div>
-            <button className="modal-close" onClick={() => setModal({ type: null })}>
-              Done
-            </button>
           </div>
         </div>
       )}
@@ -433,6 +567,7 @@ export default function Dashboard() {
       {modal.type === 'calibrate' && (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
           <div className="modal calibrate-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
             <h2>🚰 Water Calibration</h2>
             <div className="modal-content">
               <p className="calibrate-warning">
@@ -462,69 +597,143 @@ export default function Dashboard() {
         </div>
       )}
 
-      {modal.type === 'humidity' && (
-        <div className="modal-overlay" onClick={() => setModal({ type: null })}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>💧 Humidity Control</h2>
-            <div className="modal-content">
-              <div className="control-group">
-                <label>Control Mode</label>
-                <select
-                  className="control-select"
-                  value={humidityMode}
-                  onChange={(e) => handleHumidityModeChange(e.target.value)}
-                >
-                  <option value="Set-Point On/Off">Set-Point On/Off</option>
-                  <option value="2% Hysteresis Band">2% Hysteresis Band</option>
-                </select>
-                <div className="mode-description">
-                  {humidityMode === 'Set-Point On/Off' && (
-                    <p>Turns humidifier ON when humidity drops below target, OFF when it reaches target. May cycle frequently.</p>
-                  )}
-                  {humidityMode === '2% Hysteresis Band' && (
-                    <p>Turns ON at target-2%, OFF at target. Reduces cycling and provides more stable control. Recommended for most setups.</p>
-                  )}
+      {modal.type === 'humidity' && (() => {
+        const hysteresis = Number(getNumber('humidity__hysteresis')) || 0
+        const target = Number(getNumber('target_humidity')) || 70
+
+        // Initialize ref with current values ONLY if not dragging
+        if (!draggingHumidityHandle) {
+          humidityDragValues.current = { target, hysteresis }
+        }
+
+        const lowerBound = target - hysteresis
+        const upperBound = target + hysteresis
+
+        // Calculate positions on 60-100% scale
+        const targetPos = ((target - 60) / 40) * 100
+        const lowerPos = ((lowerBound - 60) / 40) * 100
+        const upperPos = ((upperBound - 60) / 40) * 100
+
+        // Offset for edge handles so they don't overlap when hysteresis is 0
+        const handleOffset = 2 // pixels
+
+        return (
+          <div className="modal-overlay" onClick={() => setModal({ type: null })}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
+              <h2>💧 Humidity Control</h2>
+              <div className="modal-content">
+                <div className="control-group">
+                  <label>Target: {target.toFixed(1)}% ± {hysteresis.toFixed(2)}% • Turns ON below {lowerBound.toFixed(1)}%, OFF {upperBound >= 100 ? 'at' : 'above'} {upperBound.toFixed(1)}%</label>
+                  <div className="dual-slider-container humidity-slider-container">
+                    {/* Target handle (center) - above track */}
+                    <div
+                      className="humidity-handle-center"
+                      style={{
+                        position: 'absolute',
+                        left: `${targetPos}%`,
+                        top: '15px',
+                        transform: 'translateX(-50%)',
+                        cursor: 'grab',
+                        zIndex: 10
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setDraggingHumidityHandle('target')
+                      }}
+                    >
+                      <div className="humidity-tick-center">💧</div>
+                    </div>
+
+                    <div className="humidity-slider-track">
+                      {/* Green segment for acceptable humidity range */}
+                      <div
+                        className="dual-slider-range humidity-slider-on"
+                        style={{
+                          left: `${Math.max(0, lowerPos)}%`,
+                          width: `${Math.max(0, Math.min(100 - lowerPos, upperPos - lowerPos))}%`
+                        }}
+                      />
+                    </div>
+
+                    {/* Lower bound handle - on bottom, slightly left */}
+                    <div
+                      className="humidity-handle-edge"
+                      style={{
+                        position: 'absolute',
+                        left: `calc(${Math.max(0, lowerPos)}% - ${handleOffset}px)`,
+                        top: '68px',
+                        transform: 'translateX(-50%)',
+                        cursor: 'grab',
+                        zIndex: 10
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setDraggingHumidityHandle('lower')
+                      }}
+                    >
+                      <div className="humidity-tick">◀</div>
+                    </div>
+
+                    {/* Upper bound handle - on bottom, slightly right */}
+                    <div
+                      className="humidity-handle-edge"
+                      style={{
+                        position: 'absolute',
+                        left: `calc(${Math.min(100, upperPos)}% + ${handleOffset}px)`,
+                        top: '68px',
+                        transform: 'translateX(-50%)',
+                        cursor: 'grab',
+                        zIndex: 10
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setDraggingHumidityHandle('upper')
+                      }}
+                    >
+                      <div className="humidity-tick">▶</div>
+                    </div>
+
+                    {/* Humidity scale below track */}
+                    <div className="dual-slider-scale" style={{ top: '80px' }}>
+                      {[60, 65, 70, 75, 80, 85, 90, 95, 100].map(val => (
+                        <div
+                          key={val}
+                          className="scale-mark"
+                          style={{ left: `${((val - 60) / 40) * 100}%` }}
+                        >
+                          <div className="scale-tick"></div>
+                          <div className="scale-label">{val}%</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="control-group">
+                  <label>
+                    Humidifier Speed: {getNumber('humidifier__speed')}%
+                  </label>
+                  <input
+                    type="range"
+                    min="50"
+                    max="100"
+                    step="5"
+                    value={getNumber('humidifier__speed') as number}
+                    onChange={(e) =>
+                      handleNumberChange('number-humidifier__speed', parseFloat(e.target.value))
+                    }
+                  />
                 </div>
               </div>
-              <div className="control-group">
-                <label>Target Humidity: {targetHumidity}%</label>
-                <input
-                  type="range"
-                  min="30"
-                  max="100"
-                  step="0.5"
-                  value={targetHumidity}
-                  onChange={(e) =>
-                    handleNumberChange('number-target_humidity', parseFloat(e.target.value))
-                  }
-                />
-              </div>
-              <div className="control-group">
-                <label>
-                  Humidifier Speed: {getNumber('humidifier__speed')}%
-                </label>
-                <input
-                  type="range"
-                  min="50"
-                  max="100"
-                  step="5"
-                  value={getNumber('humidifier__speed') as number}
-                  onChange={(e) =>
-                    handleNumberChange('number-humidifier__speed', parseFloat(e.target.value))
-                  }
-                />
-              </div>
             </div>
-            <button className="modal-close" onClick={() => setModal({ type: null })}>
-              Done
-            </button>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {modal.type === 'temperature' && (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
             <h2>🌡️ Temperature Monitoring</h2>
             <div className="modal-content">
               <div className="temp-disclaimer">
@@ -557,9 +766,6 @@ export default function Dashboard() {
                 />
               </div>
             </div>
-            <button className="modal-close" onClick={() => setModal({ type: null })}>
-              Done
-            </button>
           </div>
         </div>
       )}
@@ -567,6 +773,7 @@ export default function Dashboard() {
       {modal.type === 'air' && (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
             <h2>🌀 Air Exchange</h2>
             <div className="modal-content">
               <div className="control-group">
@@ -616,9 +823,6 @@ export default function Dashboard() {
                 />
               </div>
             </div>
-            <button className="modal-close" onClick={() => setModal({ type: null })}>
-              Done
-            </button>
           </div>
         </div>
       )}
@@ -626,43 +830,84 @@ export default function Dashboard() {
       {modal.type === 'light' && (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
             <h2>💡 Lighting Schedule</h2>
             <div className="modal-content">
               <div className="control-group">
-                <label>Sunrise</label>
-                <select
-                  className="control-select time-select"
-                  value={lightSunrise}
-                  onChange={(e) => handleSunriseChange(parseFloat(e.target.value))}
-                >
-                  {timeOptions.map(time => (
-                    <option key={time} value={time}>{formatTime(time)}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="control-group">
-                <label>Sunset</label>
-                <select
-                  className="control-select time-select"
-                  value={lightSunset}
-                  onChange={(e) => handleSunsetChange(parseFloat(e.target.value))}
-                >
-                  {timeOptions.map(time => (
-                    <option key={time} value={time}>{formatTime(time)}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="control-group">
-                <label>Duration: {lightDuration.toFixed(2)} hours</label>
-                <input
-                  type="number"
-                  className="duration-input"
-                  min="0"
-                  max="24"
-                  step="0.25"
-                  value={lightDuration}
-                  onChange={(e) => handleDurationChange(parseFloat(e.target.value))}
-                />
+                <label>Light Schedule: {formatTime(lightSunrise)} - {formatTime(lightSunset)} ({lightDuration.toFixed(1)}h)</label>
+                <div className="dual-slider-container">
+                  {/* Sunrise handle with sun icon - above track */}
+                  <div
+                    className="slider-handle-container"
+                    style={{ left: `${(lightSunrise / 24) * 100}%`, top: '15px' }}
+                    onMouseDown={(e) => {
+                      console.log('Sunrise mousedown')
+                      e.preventDefault()
+                      setDraggingHandle('sunrise')
+                    }}
+                  >
+                    <div className="slider-icon">☀️</div>
+                  </div>
+
+                  {/* Sunset handle with moon icon - above track */}
+                  <div
+                    className="slider-handle-container"
+                    style={{ left: `${(lightSunset / 24) * 100}%`, top: '15px' }}
+                    onMouseDown={(e) => {
+                      console.log('Sunset mousedown')
+                      e.preventDefault()
+                      setDraggingHandle('sunset')
+                    }}
+                  >
+                    <div className="slider-icon">🌙</div>
+                  </div>
+
+                  <div className="dual-slider-track">
+                    {/* Yellow segment for lights ON */}
+                    {lightSunset >= lightSunrise ? (
+                      // Normal case: single segment from sunrise to sunset
+                      <div
+                        className="dual-slider-range dual-slider-on"
+                        style={{
+                          left: `${(lightSunrise / 24) * 100}%`,
+                          width: `${((lightSunset - lightSunrise) / 24) * 100}%`
+                        }}
+                      />
+                    ) : (
+                      // Wraps past midnight: two segments
+                      <>
+                        <div
+                          className="dual-slider-range dual-slider-on"
+                          style={{
+                            left: `${(lightSunrise / 24) * 100}%`,
+                            width: `${((24 - lightSunrise) / 24) * 100}%`
+                          }}
+                        />
+                        <div
+                          className="dual-slider-range dual-slider-on"
+                          style={{
+                            left: '0%',
+                            width: `${(lightSunset / 24) * 100}%`
+                          }}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* Time scale below track */}
+                  <div className="dual-slider-scale" style={{ top: '68px' }}>
+                    {[0, 3, 6, 9, 12, 15, 18, 21, 24].map(hour => (
+                      <div
+                        key={hour}
+                        className="scale-mark"
+                        style={{ left: `${(hour / 24) * 100}%` }}
+                      >
+                        <div className="scale-tick"></div>
+                        <div className="scale-label">{hour.toString().padStart(2, '0')}:00</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="control-group">
                 <label>White Intensity: {luxValue} lux</label>
@@ -680,29 +925,26 @@ export default function Dashboard() {
                   </div>
                 )}
                 <div className="lux-guide">
-                  <strong>Start low (~150 lux)</strong> and increase gradually. Most mushrooms need minimal light. Typical ranges: Fruiting initiation 500-1000 lux • Active fruiting 1000-1500 lux. Too much light can cause bleached or discolored caps.
+                  Most mushrooms need minimal light - <strong>150 lux is typically sufficient</strong>. Light is primarily for pinning and directing growth, not energy production. Higher levels may cause bleaching or discolored caps.
                 </div>
               </div>
-              <div className="color-picker-group">
-                <label>RGB Color</label>
+              <div className="color-picker-row">
+                <label>RGB Color:</label>
                 <input
                   type="color"
-                  className="color-picker"
+                  className="color-picker-small"
                   value={currentColor}
                   onChange={(e) => handleColorChange(e.target.value)}
                 />
-                <div className="color-values">
+                <span className="color-value-text">
                   {redValue === 0 && greenValue === 0 && blueValue === 0 ? (
                     'OFF'
                   ) : (
-                    `R: ${redValue}% • G: ${greenValue}% • B: ${blueValue}%`
+                    `R:${redValue} G:${greenValue} B:${blueValue}`
                   )}
-                </div>
+                </span>
               </div>
             </div>
-            <button className="modal-close" onClick={() => setModal({ type: null })}>
-              Done
-            </button>
           </div>
         </div>
       )}
@@ -710,6 +952,7 @@ export default function Dashboard() {
       {modal.type === 'settings' && (
         <div className="modal-overlay" onClick={() => setModal({ type: null })}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setModal({ type: null })}>×</button>
             <h2>⚙️ Settings</h2>
             <div className="modal-content">
               <div className="settings-section">
@@ -765,15 +1008,30 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <button className="modal-close" onClick={() => setModal({ type: null })}>
-              Done
-            </button>
           </div>
         </div>
       )}
 
       {/* Charts Modal */}
       {modal.type === 'charts' && <ChartsModal onClose={() => setModal({ type: null })} />}
+
+      {/* License Modal */}
+      {showLicense && (
+        <div className="modal-overlay" onClick={() => setShowLicense(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setShowLicense(false)}>×</button>
+            <h2>MIT License</h2>
+            <div className="modal-content">
+              <div className="license-text">
+                <p>Copyright (c) 2025 OpenShrooly</p>
+                <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>
+                <p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>
+                <p><strong>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</strong></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
