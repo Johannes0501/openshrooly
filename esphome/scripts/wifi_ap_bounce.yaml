@@ -1,0 +1,28 @@
+- id: wifi_ap_bounce
+  mode: single
+  then:
+    - lambda: |-
+        id(ap_restart_in_progress) = true;
+        id(ap_last_restart_ms) = millis();
+        id(ap_status_text) = "Restarting AP...";
+        ESP_LOGI("wifi", "Starting SoftAP bounce sequence...");
+
+    - component.update: my_display
+
+    - lambda: |-
+        ESP_LOGD("wifi", "Stopping HTTP server before SoftAP bounce");
+        id(http_server).stop_server();
+    - delay: 1s
+    - delay: !lambda 'return random(2000, 4000);'
+
+    - script.execute: wifi_ap_restart
+    - script.wait: wifi_ap_restart
+
+    - lambda: |-
+        ESP_LOGD("wifi", "Restarting HTTP server after SoftAP bounce");
+        id(http_server).start_server();
+    - lambda: |-
+        ESP_LOGI("wifi", "SoftAP bounce complete");
+        id(ap_restart_in_progress) = false;
+        id(ap_status_text) = "AP ready";
+    - component.update: my_display

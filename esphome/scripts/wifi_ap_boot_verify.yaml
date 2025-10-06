@@ -1,0 +1,33 @@
+- id: wifi_ap_boot_verify
+  mode: single
+  then:
+    - if:
+        condition:
+          lambda: |-
+            IPAddress ap_ip = WiFi.softAPIP();
+            return ap_ip.isSet() && ap_ip[0] == 192 && ap_ip[1] == 168 && ap_ip[2] == 4 && ap_ip[3] == 1;
+        then:
+          - lambda: |-
+              IPAddress ap_ip = WiFi.softAPIP();
+              ESP_LOGI("wifi", "SoftAP IP verified after boot: %s", ap_ip.toString().c_str());
+              id(ap_status_text) = "AP ready";
+              id(ap_restart_in_progress) = false;
+          - component.update: my_display
+        else:
+          - lambda: |-
+              IPAddress ap_ip = WiFi.softAPIP();
+              ESP_LOGW("wifi", "SoftAP IP invalid after boot (%s); restarting DHCP.", ap_ip.toString().c_str());
+              id(ap_restart_in_progress) = true;
+              id(ap_last_restart_ms) = millis();
+              id(ap_status_text) = "Restarting AP...";
+          - component.update: my_display
+          - script.execute: wifi_ap_restart
+          - script.wait: wifi_ap_restart
+          - lambda: |-
+              IPAddress ap_ip = WiFi.softAPIP();
+              id(http_server).start_server();
+              id(ap_restart_in_progress) = false;
+              id(ap_last_restart_ms) = millis();
+              id(ap_status_text) = "AP DHCP restarted";
+              ESP_LOGI("wifi", "AP DHCP restarted; SoftAP IP now %s", ap_ip.toString().c_str());
+          - component.update: my_display

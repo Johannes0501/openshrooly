@@ -47,7 +47,10 @@ esphome:
 
       # Restart WiFi AP after 5 seconds to ensure DHCP server is running
       - delay: 5s
-      - script.execute: wifi_ap_restart
+      - script.execute: wifi_ap_bounce
+      - script.wait: wifi_ap_bounce
+      - delay: 4s
+      - script.execute: wifi_ap_boot_verify
 
       # Wait until humidity is valid
       - wait_until:
@@ -92,7 +95,11 @@ wifi:
 
   on_connect:
     then:
-      - component.update: my_display   
+      - component.update: my_display
+
+  on_disconnect:
+    then:
+      - script.execute: wifi_ap_bounce
 
 captive_portal:
 
@@ -129,6 +136,53 @@ interval:
   - interval: 60s # Every 60 seconds, log data point
     then:
       - script.execute: data_logger          
+
+  # Watchdog: nudge SoftAP/DHCP if the STA link stays down
+  - interval: 45s
+    then:
+      - lambda: |-
+          const uint32_t now = millis();
+
+          if (WiFi.isConnected()) {
+            return;
+          }
+
+          if (id(ap_restart_in_progress)) {
+            ESP_LOGD("wifi", "AP restart in progress; watchdog skipping.");
+            return;
+          }
+
+          IPAddress ap_ip = WiFi.softAPIP();
+          const uint32_t elapsed = now - id(ap_last_restart_ms);
+          const bool ip_expected = ap_ip.isSet() && ap_ip[0] == 192 && ap_ip[1] == 168 && ap_ip[2] == 4 && ap_ip[3] == 1;
+
+          if (ip_expected) {
+            return;
+          }
+
+          if (elapsed < 30000) {
+            ESP_LOGI(
+              "wifi",
+              "SoftAP IP %u.%u.%u.%u seen %ums after last restart; waiting before retry.",
+              static_cast<unsigned int>(ap_ip[0]),
+              static_cast<unsigned int>(ap_ip[1]),
+              static_cast<unsigned int>(ap_ip[2]),
+              static_cast<unsigned int>(ap_ip[3]),
+              static_cast<unsigned int>(elapsed)
+            );
+            return;
+          }
+
+          ESP_LOGW(
+            "wifi",
+            "SoftAP IP unhealthy (%u.%u.%u.%u); re-running restart helper.",
+            static_cast<unsigned int>(ap_ip[0]),
+            static_cast<unsigned int>(ap_ip[1]),
+            static_cast<unsigned int>(ap_ip[2]),
+            static_cast<unsigned int>(ap_ip[3])
+          );
+
+          id(wifi_ap_bounce).execute();
 
   # Update LVGL labels every 10 seconds
   - interval: 10s
@@ -187,20 +241,28 @@ interval:
       - lvgl.label.update:
           id: main_wifi_value
           text: !lambda |-
+            if (id(ap_restart_in_progress)) {
+              return std::string("Restarting AP...");
+            }
+
             if (WiFi.isConnected()) {
               return std::string("Connected");
-            } else {
-              return std::string("AP Mode");
             }
+
+            return std::string("AP Mode");
 
       - lvgl.label.update:
           id: main_ip_value
           text: !lambda |-
+            if (id(ap_restart_in_progress)) {
+              return std::string("--.--.--.--");
+            }
+
             if (WiFi.isConnected()) {
               return WiFi.localIP().toString().c_str();
-            } else {
-              return std::string("192.168.4.1");
             }
+
+            return std::string("192.168.4.1");
 
       - lvgl.label.update:
           id: main_time_label
@@ -223,6 +285,11 @@ interval:
             sprintf(str, "%dh %dm", hours, minutes);
             return std::string(str);
 
+      - lvgl.label.update:
+          id: main_status_message
+          text: !lambda |-
+            return id(ap_status_text).c_str();
+
       # Force display update
       - component.update: my_display
 
@@ -244,5 +311,3 @@ script: !include_dir_merge_list scripts/
 <<: !include components/buttons.yaml
 <<: !include components/lvgl_config.yaml
 <<: !include components/webserver.yaml
-
-
