@@ -21,19 +21,11 @@
             int on_time_ms = (int)(125.0f * speed_percent / 100.0f);
             int off_time_ms = 125 - on_time_ms;
 
-            // Turn on the humidifier fan via I2C
-            auto device = new i2c::I2CDevice();
-            device->set_i2c_bus(id(bus_a));
-            device->set_i2c_address(0x6C);  // Humidifier fan I2C address
-
-            uint8_t data[2];
-            data[0] = 0x00;  // Register
-            data[1] = 0x01;  // Turn on
-            bool err = device->write(data, 2);
-            if (err) {
+            // Turn on the humidifier fan via I2C using copro_bus
+            id(copro_bus).execute(0x6C, 0x00, 0x01, 2, 0);
+            if (id(copro_last_error)) {
               ESP_LOGW("humidifier_pwm", "❌ I2C write FAILED for humidifier ON");
             }
-            delete device;
 
             // Keep on for the calculated duration
             id(humidifier_pwm_on_time) = on_time_ms;
@@ -44,16 +36,11 @@
             // Only turn off if we're doing PWM (not 100% duty)
             float speed_percent = id(humidifier_speed).state;
             if (speed_percent < 100.0f && id(humidifier_on_flag)) {
-              // Turn off the humidifier fan via I2C
-              auto device = new i2c::I2CDevice();
-              device->set_i2c_bus(id(bus_a));
-              device->set_i2c_address(0x6C);  // Humidifier fan I2C address
-
-              uint8_t data[2];
-              data[0] = 0x00;  // Register
-              data[1] = 0x00;  // Turn off
-              device->write(data, 2);
-              delete device;
+              // Turn off the humidifier fan via I2C using copro_bus
+              id(copro_bus).execute(0x6C, 0x00, 0x00, 2, 0);
+              if (id(copro_last_error)) {
+                ESP_LOGW("humidifier_pwm", "❌ I2C write FAILED for humidifier OFF");
+              }
 
               // Calculate off time
               int off_time_ms = 125 - (int)(125.0f * speed_percent / 100.0f);
@@ -69,15 +56,7 @@
   - lambda: |-
       // Always turn off when stopping
       ESP_LOGI("humidifier_pwm", "⚫ PWM control stopping - turning fan OFF");
-      auto device = new i2c::I2CDevice();
-      device->set_i2c_bus(id(bus_a));
-      device->set_i2c_address(0x6C);  // Humidifier fan I2C address
-
-      uint8_t data[2];
-      data[0] = 0x00;  // Register
-      data[1] = 0x00;  // Turn off
-      bool err = device->write(data, 2);
-      if (err) {
+      id(copro_bus).execute(0x6C, 0x00, 0x00, 2, 0);
+      if (id(copro_last_error)) {
         ESP_LOGW("humidifier_pwm", "❌ I2C write FAILED for final OFF command");
       }
-      delete device;
