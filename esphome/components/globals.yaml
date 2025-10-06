@@ -130,6 +130,22 @@ globals:
     type: unsigned long
     initial_value: '0'
 
+  # Wi-Fi/AP recovery state
+  - id: ap_restart_in_progress
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: ap_last_restart_ms
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
+
+  - id: ap_status_text
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
   # UI globals
   - id: current_ui_page
     type: int
