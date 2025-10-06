@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { api } from '../lib/esphome-api'
-import ChartsModal from './components/ChartsModal'
 
 interface EntityState {
   [key: string]: {
@@ -12,7 +11,7 @@ interface EntityState {
 }
 
 interface ModalState {
-  type: 'humidity' | 'temperature' | 'air' | 'light' | 'water' | 'settings' | 'calibrate' | 'charts' | null
+  type: 'humidity' | 'temperature' | 'air' | 'light' | 'water' | 'settings' | 'calibrate' | null
 }
 
 export default function Dashboard() {
@@ -542,13 +541,6 @@ export default function Dashboard() {
           <span style={{ fontWeight: '300' }}>Shrooly</span>
         </h1>
         <div className="header-right">
-          <button
-            className="charts-button"
-            onClick={() => setModal({ type: 'charts' })}
-            title="View historical data"
-          >
-            📊 Charts
-          </button>
           <div className="header-time">{lastUpdate.toLocaleTimeString()}</div>
         </div>
       </div>
@@ -1424,9 +1416,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* Charts Modal */}
-      {modal.type === 'charts' && <ChartsModal onClose={() => setModal({ type: null })} />}
 
       {/* License Modal */}
       {showLicense && (

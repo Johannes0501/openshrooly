@@ -1912,11 +1912,6 @@ void WebServer::handleRequest(AsyncWebServerRequest *request) {
     return;
   }
 
-  // Handle history API endpoint
-  if (url.startsWith("/api/history")) {
-    this->handle_history_request(request);
-    return;
-  }
 #endif
 
   if (url == "/") {
@@ -2234,27 +2229,6 @@ void WebServer::handle_static_file_request(AsyncWebServerRequest *request) {
 // #endif
 }
 
-#ifdef USE_WEBSERVER_APP_HTML_INCLUDE
-void WebServer::handle_history_request(AsyncWebServerRequest *request) {
-  // Get limit parameter (default to 288 = last 2.4 hours)
-  int limit = 288;
-  if (request->hasParam("limit")) {
-    limit = request->getParam("limit")->value().toInt();
-  }
-
-  // TODO: Implement actual history data retrieval
-  // For now, return empty arrays - the client will handle this gracefully
-  std::string json = "{";
-  json += "\"count\":0,";
-  json += "\"temperature\":[],";
-  json += "\"humidity\":[],";
-  json += "\"devices\":[]";
-  json += "}";
-
-  // Send response
-  request->send(200, "application/json", json.c_str());
-}
-#endif
 
 }  // namespace web_server
 }  // namespace esphome

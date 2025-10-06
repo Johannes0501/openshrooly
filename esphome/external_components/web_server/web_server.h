@@ -243,8 +243,6 @@ class WebServer : public Controller, public Component, public AsyncWebHandler {
 #ifdef USE_WEBSERVER_APP_HTML_INCLUDE
   /// Handle app HTML request under '/app'.
   void handle_app_request(AsyncWebServerRequest *request);
-  /// Handle history API request under '/api/history'.
-  void handle_history_request(AsyncWebServerRequest *request);
 #endif
 
 #ifdef USE_WEBSERVER_CSS_INCLUDE

@@ -150,34 +150,3 @@ globals:
     type: bool
     initial_value: 'false'
 
-  # Historical data logging (RAM only, not saved to flash)
-  # Circular buffer for 24 hours of data at 30-second intervals (2880 points)
-  - id: history_index
-    type: int
-    restore_value: no
-    initial_value: '0'
-
-  - id: history_count
-    type: int
-    restore_value: no
-    initial_value: '0'
-
-  # Store timestamps (Unix epoch time)
-  - id: history_timestamps
-    type: std::vector<uint32_t>
-    restore_value: no
-
-  # Store temperature values
-  - id: history_temperature
-    type: std::vector<float>
-    restore_value: no
-
-  # Store humidity values
-  - id: history_humidity
-    type: std::vector<float>
-    restore_value: no
-
-  # Store device states (bit flags: bit 0=lights, bit 1=humidifier, bit 2=air_exchange)
-  - id: history_device_states
-    type: std::vector<uint8_t>
-    restore_value: no
