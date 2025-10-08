@@ -62,6 +62,31 @@ sensor:
 
     update_interval: 2s      # Increased from 1s to account for heater operation
 
+  - platform: scd4x
+    i2c_id: bus_a
+    co2:
+      id: co2
+      name: "CO2"
+      icon: mdi:molecule-co2
+      web_server:
+        sorting_group_id: grp_env
+        sorting_weight: 10
+    temperature:
+      id: scd41_temperature
+      name: "SCD41 Temperature"
+      icon: mdi:thermometer
+      web_server:
+        sorting_group_id: grp_temperature
+        sorting_weight: 10
+    humidity:
+      id: scd41_humidity
+      name: "SCD41 Humidity"
+      icon: mdi:water-percent
+      web_server:
+        sorting_group_id: grp_humidity
+        sorting_weight: 10
+    update_interval: 30s
+
   - platform: pulse_counter
     pin:
       number: GPIO14

@@ -1,0 +1,1 @@
+- source ~/dev/esphome/.venv/bin/activate

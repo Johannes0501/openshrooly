@@ -5,7 +5,7 @@
         condition:
           lambda: |-
             IPAddress ap_ip = WiFi.softAPIP();
-            return ap_ip.isSet() && ap_ip[0] == 192 && ap_ip[1] == 168 && ap_ip[2] == 4 && ap_ip[3] == 1;
+            return (ap_ip[0] == 192 && ap_ip[1] == 168 && ap_ip[2] == 4 && ap_ip[3] == 1);
         then:
           - lambda: |-
               IPAddress ap_ip = WiFi.softAPIP();
@@ -25,7 +25,6 @@
           - script.wait: wifi_ap_restart
           - lambda: |-
               IPAddress ap_ip = WiFi.softAPIP();
-              id(http_server).start_server();
               id(ap_restart_in_progress) = false;
               id(ap_last_restart_ms) = millis();
               id(ap_status_text) = "AP DHCP restarted";

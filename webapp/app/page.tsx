@@ -289,6 +289,100 @@ export default function Dashboard() {
     handleNumberChange('number-white_led_intensity', lux)
   }
 
+  // Common function to get position from mouse or touch event
+  const getClientX = (e: MouseEvent | TouchEvent): number => {
+    return 'touches' in e ? e.touches[0].clientX : e.clientX
+  }
+
+  // Common handler for light schedule slider movement
+  const handleLightSliderMove = (e: MouseEvent | TouchEvent) => {
+    if (!draggingHandle) return
+
+    const track = document.querySelector('.dual-slider-track') as HTMLDivElement
+    if (track) {
+      const rect = track.getBoundingClientRect()
+      const x = Math.max(0, Math.min(getClientX(e) - rect.left, rect.width))
+      const percentage = x / rect.width
+      const hour = Math.round(percentage * 24 * 4) / 4 // Round to 0.25 increments (15 min)
+
+      if (draggingHandle === 'sunrise') {
+        handleSunriseChange(hour)
+      } else {
+        handleSunsetChange(hour)
+      }
+    }
+  }
+
+  // Common handler for humidity slider movement
+  const handleHumiditySliderMove = (e: MouseEvent | TouchEvent) => {
+    if (!draggingHumidityHandle) return
+
+    const track = document.querySelector('.humidity-slider-track') as HTMLDivElement
+    if (track) {
+      const rect = track.getBoundingClientRect()
+      const x = Math.max(0, Math.min(getClientX(e) - rect.left, rect.width))
+      const percentage = x / rect.width
+      const humidity = 60 + (percentage * 40) // Map 0-100% of slider to 60-100% humidity
+      const roundedHumidity = Math.round(humidity * 2) / 2 // Round to 0.5%
+
+      const currentTarget = humidityDragValues.current.target
+      const currentHyst = humidityDragValues.current.hysteresis
+
+      if (draggingHumidityHandle === 'target') {
+        const clampedTarget = Math.max(60 + currentHyst, Math.min(100 - currentHyst, roundedHumidity))
+        humidityDragValues.current.target = clampedTarget
+        handleNumberChange('number-target_humidity', clampedTarget)
+      } else if (draggingHumidityHandle === 'lower') {
+        if (roundedHumidity > currentTarget) return
+        const newHyst = Math.min(5, (currentTarget - roundedHumidity) / 2)
+        const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
+        humidityDragValues.current.hysteresis = roundedHyst
+        handleNumberChange('number-humidity__hysteresis', roundedHyst)
+      } else if (draggingHumidityHandle === 'upper') {
+        if (roundedHumidity < currentTarget) return
+        const newHyst = Math.min(5, (roundedHumidity - currentTarget) / 2)
+        const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
+        humidityDragValues.current.hysteresis = roundedHyst
+        handleNumberChange('number-humidity__hysteresis', roundedHyst)
+      }
+    }
+  }
+
+  // Common handler for temperature slider movement
+  const handleTempSliderMove = (e: MouseEvent | TouchEvent) => {
+    if (!draggingTempHandle) return
+
+    const track = document.querySelector('.temperature-slider-track') as HTMLDivElement
+    if (track) {
+      const rect = track.getBoundingClientRect()
+      const x = Math.max(0, Math.min(getClientX(e) - rect.left, rect.width))
+      const percentage = x / rect.width
+      const temp = 15 + (percentage * 20) // Map 0-100% of slider to 15-35°C
+      const roundedTemp = Math.round(temp * 2) / 2 // Round to 0.5°C
+
+      const currentTarget = tempDragValues.current.target
+      const currentHyst = tempDragValues.current.hysteresis
+
+      if (draggingTempHandle === 'target') {
+        const clampedTarget = Math.max(15 + currentHyst, Math.min(35 - currentHyst, roundedTemp))
+        tempDragValues.current.target = clampedTarget
+        handleNumberChange('number-temperature__target', clampedTarget)
+      } else if (draggingTempHandle === 'lower') {
+        if (roundedTemp > currentTarget) return
+        const newHyst = Math.min(3, currentTarget - roundedTemp)
+        const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
+        tempDragValues.current.hysteresis = roundedHyst
+        handleNumberChange('number-temperature__hysteresis', roundedHyst)
+      } else if (draggingTempHandle === 'upper') {
+        if (roundedTemp < currentTarget) return
+        const newHyst = Math.min(3, roundedTemp - currentTarget)
+        const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
+        tempDragValues.current.hysteresis = roundedHyst
+        handleNumberChange('number-temperature__hysteresis', roundedHyst)
+      }
+    }
+  }
+
   const handleSliderDrag = useCallback((e: React.MouseEvent, trackRef: HTMLDivElement) => {
     if (!draggingHandle) return
 
@@ -305,150 +399,49 @@ export default function Dashboard() {
   }, [draggingHandle])
 
   useEffect(() => {
-    const handleMouseUp = () => {
-      setDraggingHandle(null)
-    }
-    const handleMouseMove = (e: MouseEvent) => {
-      if (draggingHandle) {
-        const track = document.querySelector('.dual-slider-track') as HTMLDivElement
-        if (track) {
-          const rect = track.getBoundingClientRect()
-          const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
-          const percentage = x / rect.width
-          const hour = Math.round(percentage * 24 * 4) / 4 // Round to 0.25 increments (15 min)
+    const handleEnd = () => setDraggingHandle(null)
 
-          if (draggingHandle === 'sunrise') {
-            handleSunriseChange(hour)
-          } else {
-            handleSunsetChange(hour)
-          }
-        }
-      }
-    }
-
-    document.addEventListener('mouseup', handleMouseUp)
-    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleEnd)
+    document.addEventListener('mousemove', handleLightSliderMove)
+    document.addEventListener('touchend', handleEnd)
+    document.addEventListener('touchmove', handleLightSliderMove)
     return () => {
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleEnd)
+      document.removeEventListener('mousemove', handleLightSliderMove)
+      document.removeEventListener('touchend', handleEnd)
+      document.removeEventListener('touchmove', handleLightSliderMove)
     }
   }, [draggingHandle])
 
   // Humidity slider drag handling
   useEffect(() => {
-    const handleMouseUp = () => {
-      setDraggingHumidityHandle(null)
-    }
-    const handleMouseMove = (e: MouseEvent) => {
-      if (draggingHumidityHandle) {
-        const track = document.querySelector('.humidity-slider-track') as HTMLDivElement
-        if (track) {
-          const rect = track.getBoundingClientRect()
-          const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
-          const percentage = x / rect.width
-          const humidity = 60 + (percentage * 40) // Map 0-100% of slider to 60-100% humidity
-          const roundedHumidity = Math.round(humidity * 2) / 2 // Round to 0.5%
+    const handleEnd = () => setDraggingHumidityHandle(null)
 
-
-          // Use ref values for current drag state (more up-to-date than entity state)
-          const currentTarget = humidityDragValues.current.target
-          const currentHyst = humidityDragValues.current.hysteresis
-
-
-          if (draggingHumidityHandle === 'target') {
-            // Dragging center - move target humidity
-            const clampedTarget = Math.max(60 + currentHyst, Math.min(100 - currentHyst, roundedHumidity))
-            humidityDragValues.current.target = clampedTarget
-            handleNumberChange('number-target_humidity', clampedTarget)
-          } else if (draggingHumidityHandle === 'lower') {
-            // Dragging lower bound - adjust hysteresis
-            // Can't drag past the target (would be negative)
-            if (roundedHumidity > currentTarget) {
-              return
-            }
-            // Scale down by 2 to get actual hysteresis (visual is 2x)
-            const newHyst = Math.min(5, (currentTarget - roundedHumidity) / 2)
-            // Round to 0.25%, but if very close to 0, snap to 0
-            const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
-            humidityDragValues.current.hysteresis = roundedHyst
-            handleNumberChange('number-humidity__hysteresis', roundedHyst)
-          } else if (draggingHumidityHandle === 'upper') {
-            // Dragging upper bound - adjust hysteresis
-            // Can't drag past the target (would be negative)
-            if (roundedHumidity < currentTarget) {
-              return
-            }
-            // Scale down by 2 to get actual hysteresis (visual is 2x)
-            const newHyst = Math.min(5, (roundedHumidity - currentTarget) / 2)
-            // Round to 0.25%, but if very close to 0, snap to 0
-            const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
-            humidityDragValues.current.hysteresis = roundedHyst
-            handleNumberChange('number-humidity__hysteresis', roundedHyst)
-          }
-        }
-      }
-    }
-
-    document.addEventListener('mouseup', handleMouseUp)
-    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleEnd)
+    document.addEventListener('mousemove', handleHumiditySliderMove)
+    document.addEventListener('touchend', handleEnd)
+    document.addEventListener('touchmove', handleHumiditySliderMove)
     return () => {
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleEnd)
+      document.removeEventListener('mousemove', handleHumiditySliderMove)
+      document.removeEventListener('touchend', handleEnd)
+      document.removeEventListener('touchmove', handleHumiditySliderMove)
     }
   }, [draggingHumidityHandle])
 
   // Temperature slider drag handling
   useEffect(() => {
-    const handleMouseUp = () => {
-      setDraggingTempHandle(null)
-    }
-    const handleMouseMove = (e: MouseEvent) => {
-      if (draggingTempHandle) {
-        const track = document.querySelector('.temperature-slider-track') as HTMLDivElement
-        if (track) {
-          const rect = track.getBoundingClientRect()
-          const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width))
-          const percentage = x / rect.width
-          const temp = 15 + (percentage * 20) // Map 0-100% of slider to 15-35°C
-          const roundedTemp = Math.round(temp * 2) / 2 // Round to 0.5°C
+    const handleEnd = () => setDraggingTempHandle(null)
 
-          // Use ref values for current drag state
-          const currentTarget = tempDragValues.current.target
-          const currentHyst = tempDragValues.current.hysteresis
-
-          if (draggingTempHandle === 'target') {
-            // Dragging center - move target temperature
-            const clampedTarget = Math.max(15 + currentHyst, Math.min(35 - currentHyst, roundedTemp))
-            tempDragValues.current.target = clampedTarget
-            handleNumberChange('number-temperature__target', clampedTarget)
-          } else if (draggingTempHandle === 'lower') {
-            // Dragging lower bound - adjust hysteresis
-            if (roundedTemp > currentTarget) {
-              return
-            }
-            const newHyst = Math.min(3, currentTarget - roundedTemp)
-            const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
-            tempDragValues.current.hysteresis = roundedHyst
-            handleNumberChange('number-temperature__hysteresis', roundedHyst)
-          } else if (draggingTempHandle === 'upper') {
-            // Dragging upper bound - adjust hysteresis
-            if (roundedTemp < currentTarget) {
-              return
-            }
-            const newHyst = Math.min(3, roundedTemp - currentTarget)
-            const roundedHyst = newHyst < 0.125 ? 0 : Math.round(newHyst * 4) / 4
-            tempDragValues.current.hysteresis = roundedHyst
-            handleNumberChange('number-temperature__hysteresis', roundedHyst)
-          }
-        }
-      }
-    }
-
-    document.addEventListener('mouseup', handleMouseUp)
-    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleEnd)
+    document.addEventListener('mousemove', handleTempSliderMove)
+    document.addEventListener('touchend', handleEnd)
+    document.addEventListener('touchmove', handleTempSliderMove)
     return () => {
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleEnd)
+      document.removeEventListener('mousemove', handleTempSliderMove)
+      document.removeEventListener('touchend', handleEnd)
+      document.removeEventListener('touchmove', handleTempSliderMove)
     }
   }, [draggingTempHandle])
 
@@ -626,7 +619,7 @@ export default function Dashboard() {
         <div className="card card-settings" onClick={() => setModal({ type: 'settings' })}>
           <div className="card-icon">⚙️</div>
           <div className="card-label">Settings</div>
-          <div className="card-value">v0.4.3</div>
+          <div className="card-value">v0.9</div>
           <div className="card-detail">System & Network</div>
         </div>
       </div>
@@ -796,6 +789,10 @@ export default function Dashboard() {
                         e.preventDefault()
                         setDraggingHumidityHandle('target')
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        setDraggingHumidityHandle('target')
+                      }}
                     />
 
                     {/* Humidity slider track with gradient */}
@@ -844,6 +841,10 @@ export default function Dashboard() {
                         e.preventDefault()
                         setDraggingHumidityHandle('lower')
                       }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        setDraggingHumidityHandle('lower')
+                      }}
                     >
                       <div className="humidity-tick">◀</div>
                     </div>
@@ -860,6 +861,10 @@ export default function Dashboard() {
                         zIndex: 10
                       }}
                       onMouseDown={(e) => {
+                        e.preventDefault()
+                        setDraggingHumidityHandle('upper')
+                      }}
+                      onTouchStart={(e) => {
                         e.preventDefault()
                         setDraggingHumidityHandle('upper')
                       }}
@@ -1005,6 +1010,10 @@ export default function Dashboard() {
                           e.preventDefault()
                           setDraggingTempHandle('target')
                         }}
+                        onTouchStart={(e) => {
+                          e.preventDefault()
+                          setDraggingTempHandle('target')
+                        }}
                       />
 
                       {/* Lower bound handle - on bottom, left */}
@@ -1019,6 +1028,10 @@ export default function Dashboard() {
                           zIndex: 10
                         }}
                         onMouseDown={(e) => {
+                          e.preventDefault()
+                          setDraggingTempHandle('lower')
+                        }}
+                        onTouchStart={(e) => {
                           e.preventDefault()
                           setDraggingTempHandle('lower')
                         }}
@@ -1038,6 +1051,10 @@ export default function Dashboard() {
                           zIndex: 10
                         }}
                         onMouseDown={(e) => {
+                          e.preventDefault()
+                          setDraggingTempHandle('upper')
+                        }}
+                        onTouchStart={(e) => {
                           e.preventDefault()
                           setDraggingTempHandle('upper')
                         }}
@@ -1178,6 +1195,10 @@ export default function Dashboard() {
                       e.preventDefault()
                       setDraggingHandle('sunrise')
                     }}
+                    onTouchStart={(e) => {
+                      e.preventDefault()
+                      setDraggingHandle('sunrise')
+                    }}
                   >
                     <div className="slider-icon">☀️</div>
                   </div>
@@ -1187,6 +1208,10 @@ export default function Dashboard() {
                     className="slider-handle-container"
                     style={{ left: `${(lightSunset / 24) * 100}%`, top: '15px' }}
                     onMouseDown={(e) => {
+                      e.preventDefault()
+                      setDraggingHandle('sunset')
+                    }}
+                    onTouchStart={(e) => {
                       e.preventDefault()
                       setDraggingHandle('sunset')
                     }}
@@ -1292,7 +1317,7 @@ export default function Dashboard() {
                 <div className="settings-info">
                   <div className="info-row">
                     <span className="info-label">Version:</span>
-                    <span className="info-value">0.4.3</span>
+                    <span className="info-value">0.9</span>
                   </div>
                   <div className="info-row">
                     <span className="info-label">Voltage:</span>

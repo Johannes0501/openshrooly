@@ -1,5 +1,5 @@
 substitutions:
-  device_version: "0.4.3"
+  device_version: "0.9"
 
 esphome:
   name: openshrooly
@@ -67,6 +67,7 @@ esp32:
   board: esp32-s3-devkitc-1
   framework:
     type: arduino
+  partitions: partitions_custom.csv
 
 logger:
   level: INFO
@@ -150,7 +151,7 @@ interval:
 
           IPAddress ap_ip = WiFi.softAPIP();
           const uint32_t elapsed = now - id(ap_last_restart_ms);
-          const bool ip_expected = ap_ip.isSet() && ap_ip[0] == 192 && ap_ip[1] == 168 && ap_ip[2] == 4 && ap_ip[3] == 1;
+          const bool ip_expected = (ap_ip[0] == 192 && ap_ip[1] == 168 && ap_ip[2] == 4 && ap_ip[3] == 1);
 
           if (ip_expected) {
             return;
