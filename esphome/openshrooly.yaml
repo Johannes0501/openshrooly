@@ -11,7 +11,6 @@ esphome:
   platformio_options:
     build_flags:
       - -Wno-cpp  # Suppress preprocessor warnings (including deprecation warnings)
-    boards_dir: boards
 
   on_boot:
     priority: 600  # Very early boot
@@ -65,13 +64,10 @@ esphome:
       - script.execute: humidity_control_manager
 
 esp32:
-  board: esp32-s3-devkitc-1-n8r2
-  variant: esp32s3
-  flash_size: 8MB
+  board: esp32-s3-devkitc1-n8r2
+  variant: ESP32S3
   framework:
     type: arduino
-psram:
-  mode: quad  # ESP32-S3-N8R2 uses 1.8V QSPI PSRAM
 
 logger:
   level: INFO
