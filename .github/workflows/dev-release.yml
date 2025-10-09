@@ -95,7 +95,20 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Determine build ID
+        id: build_id
+        run: |
+          SHA="${{ github.sha }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            SHA="${{ github.event.pull_request.head.sha }}"
+          fi
+          BUILD_ID="${SHA:0:12}"
+          echo "Using build id: ${BUILD_ID}"
+          echo "build_id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
+
       - name: Build webapp
+        env:
+          NEXT_BUILD_ID: ${{ steps.build_id.outputs.build_id }}
         run: |
           cd webapp
           npm ci
