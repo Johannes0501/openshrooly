@@ -2,9 +2,20 @@ name: Build development firmware
 
 on:
   push:
-    branches: ["**"]        # any branch
-    tags: ["*"]             # any tag (creation or moved)
+    branches:
+      - main
+    tags-ignore:
+      - 'dev-*'
   workflow_dispatch:
+    inputs:
+      publish_dev_outputs:
+        description: 'Push dev-latest/dev-YYYY-MM-DD tags and prereleases (manual runs only)'
+        type: boolean
+        default: false
+      publish_release:
+        description: 'Publish a production release (manual runs only)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -18,9 +29,37 @@ env:
 
 jobs:
   build:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name, 'dev-'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure publication modes
+        env:
+          PUBLISH_DEV_INPUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.publish_dev_outputs == 'true' }}
+          PUBLISH_RELEASE_INPUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true' }}
+        run: |
+          echo "SHOULD_PUBLISH_DEV=false" >> $GITHUB_ENV
+          echo "SHOULD_PUBLISH_RELEASE=false" >> $GITHUB_ENV
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "SHOULD_PUBLISH_DEV=true" >> $GITHUB_ENV
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/* && "${GITHUB_REF_NAME}" != dev-* ]]; then
+            echo "SHOULD_PUBLISH_RELEASE=true" >> $GITHUB_ENV
+          fi
+
+          if [[ "${PUBLISH_DEV_INPUT}" == "true" ]]; then
+            echo "SHOULD_PUBLISH_DEV=true" >> $GITHUB_ENV
+          fi
+
+          if [[ "${PUBLISH_RELEASE_INPUT}" == "true" ]]; then
+            echo "SHOULD_PUBLISH_RELEASE=true" >> $GITHUB_ENV
+          fi
 
       - name: Compute names
         id: names
@@ -70,6 +109,7 @@ jobs:
 
       # ----- Dev "latest" moving tag -----
       - name: Tag dev-latest
+        if: env.SHOULD_PUBLISH_DEV == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
@@ -78,6 +118,7 @@ jobs:
 
       # ----- Dated daily tag (keeps ~30 days) -----
       - name: Tag dated daily build
+        if: env.SHOULD_PUBLISH_DEV == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
@@ -86,6 +127,7 @@ jobs:
 
       # ----- Undated latest prerelease (assets replaced each run) -----
       - name: Publish dev-latest prerelease
+        if: env.SHOULD_PUBLISH_DEV == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: dev-latest
@@ -97,9 +139,10 @@ jobs:
             ${{ steps.build.outputs.name }}/${{ steps.build.outputs.name }}.factory.bin
             ${{ steps.build.outputs.name }}/${{ steps.build.outputs.name }}.ota.bin
             ${{ steps.build.outputs.name }}/manifest.json
-        
+
        # Dated dev prerelease
       - name: Publish dated dev prerelease
+        if: env.SHOULD_PUBLISH_DEV == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.DATE_TAG }}
@@ -114,7 +157,7 @@ jobs:
       
       # Proper release for pushed tags (e.g., 0.1.0)
       - name: Publish release for version tag
-        if: startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name, 'dev-')
+        if: env.SHOULD_PUBLISH_RELEASE == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -152,6 +195,7 @@ jobs:
 
       # ----- Prune dated prereleases (keep ~30 most recent dev-YYYY-MM-DD) -----
       - name: Prune old dated prereleases
+        if: env.SHOULD_PUBLISH_DEV == 'true'
         uses: actions/github-script@v7
         with:
           script: |
