@@ -61,6 +61,14 @@ jobs:
             echo "SHOULD_PUBLISH_RELEASE=true" >> $GITHUB_ENV
           fi
 
+      - name: Set preview version label
+        run: |
+          if [[ "${SHOULD_PUBLISH_DEV}" != "true" && "${SHOULD_PUBLISH_RELEASE}" != "true" ]]; then
+            SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+            echo "Preview build detected for ${SHORT_SHA}"
+            echo "VERSION=preview-${SHORT_SHA}" >> $GITHUB_ENV
+          fi
+
       - name: Compute names
         id: names
         run: |
