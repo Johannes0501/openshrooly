@@ -56,6 +56,11 @@ jobs:
           npm ci
           npm run build
 
+      - name: Embed static files
+        run: |
+          cd esphome
+          python3 external_components/web_server/embed_static_files.py ../webapp/out external_components/web_server/static_files.h external_components/web_server/static_files.cpp
+
       - name: Build firmware (once)
         id: build
         uses: esphome/build-action@v7
