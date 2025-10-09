@@ -1454,6 +1454,21 @@ export default function Dashboard() {
                 <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>
                 <p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>
                 <p><strong>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</strong></p>
+
+                <h3 style={{ marginTop: '24px', fontSize: '18px', fontWeight: '600' }}>Binary Components License Disclaimer</h3>
+                <p style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '6px', color: '#856404' }}>
+                  <strong>⚠️ IMPORTANT NOTICE:</strong> This project contains binary coprocessor firmware that was extracted from the original Shrooly device. The licensing terms for this binary firmware component are <strong>AMBIGUOUS and UNCLEAR</strong>.
+                </p>
+                <p style={{ marginTop: '12px' }}>While the OpenShrooly project code is licensed under the MIT License above, users should be aware that:</p>
+                <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
+                  <li>The binary coprocessor firmware was reverse-engineered from the original Shrooly device</li>
+                  <li>The original manufacturer's licensing terms for this component are unknown</li>
+                  <li>Use of this binary component may be subject to different licensing restrictions</li>
+                  <li>Users assume responsibility for compliance with any applicable licensing terms</li>
+                </ul>
+                <p style={{ marginTop: '12px', fontSize: '14px', color: '#64748b' }}>
+                  If you have concerns about the licensing of the binary coprocessor firmware, please consult with appropriate legal counsel or consider using OpenShrooly without the extracted binary components.
+                </p>
               </div>
             </div>
           </div>
