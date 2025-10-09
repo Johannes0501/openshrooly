@@ -60,7 +60,7 @@ jobs:
         run: |
           cd webapp
           npm ci
-          npm run build -- --mode=ci
+          npm run build
 
       - name: Embed static assets
         run: |

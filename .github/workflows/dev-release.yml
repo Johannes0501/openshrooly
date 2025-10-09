@@ -90,7 +90,7 @@ jobs:
       - name: Build webapp
         run: |
           cd webapp
-          npm install
+          npm ci
           npm run build
 
       - name: Embed static files
