@@ -98,7 +98,7 @@ namespace web_server {
             # Read and compress file
             with open(full_path, 'rb') as f:
                 data = f.read()
-            compressed = gzip.compress(data)
+            compressed = gzip.compress(data, mtime=0)
 
             # Generate variable name
             var_name = f"STATIC_FILE_{file_index}"
