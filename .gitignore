@@ -1,17 +1,3 @@
-# ESPHome build artifacts
-*.bin
-/.esphome/
-**/.pioenvs/
-**/.piolibdeps/
-
-# VSCode & OS
-.vscode/
-.DS_Store
-
-# Node front-end artifacts
 node_modules/
-webapp/.next/
-webapp/out/
-
-**/__pycache__/
-esphome/data/www/_next/static/
+logs/
+.esphome/
