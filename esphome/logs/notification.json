@@ -1,0 +1,26 @@
+[
+  {
+    "session_id": "04c2be8b-aa6b-4b11-b2f4-26623c099ab1",
+    "transcript_path": "/Users/jh/.claude/projects/-Users-jh-Development-Shrooms/04c2be8b-aa6b-4b11-b2f4-26623c099ab1.jsonl",
+    "cwd": "/Users/jh/Development/Shrooms/openshrooly/esphome",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "04c2be8b-aa6b-4b11-b2f4-26623c099ab1",
+    "transcript_path": "/Users/jh/.claude/projects/-Users-jh-Development-Shrooms/04c2be8b-aa6b-4b11-b2f4-26623c099ab1.jsonl",
+    "cwd": "/Users/jh/Development/Shrooms/openshrooly/esphome",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "04c2be8b-aa6b-4b11-b2f4-26623c099ab1",
+    "transcript_path": "/Users/jh/.claude/projects/-Users-jh-Development-Shrooms/04c2be8b-aa6b-4b11-b2f4-26623c099ab1.jsonl",
+    "cwd": "/Users/jh/Development/Shrooms/openshrooly/esphome",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  }
+]

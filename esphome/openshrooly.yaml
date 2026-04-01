@@ -1,6 +1,8 @@
 substitutions:
   device_version: "0.9"
   api_url: "https://api-shrooms.xn--datastrm-c5a.com/api/readings"
+  api_commands_url: "https://api-shrooms.xn--datastrm-c5a.com/api/commands/pending"
+  api_ack_url: "https://api-shrooms.xn--datastrm-c5a.com/api/commands"
   api_key: "6efaae302029c195d96ac50f571ba8a9e4298937211d31e323e6898aaff8fbcb"
 
 esphome:
@@ -145,6 +147,78 @@ interval:
                           ESP_LOGI("api", "Sensor data posted successfully");
                         } else {
                           ESP_LOGW("api", "API post failed with status %d", response->status_code);
+                        }
+            - lambda: |-
+                ESP_LOGI("cmd", "Polling for commands...");
+            - http_request.post:
+                url: "${api_commands_url}"
+                capture_response: true
+                max_response_buffer_size: 512
+                request_headers:
+                  Content-Type: "application/json"
+                  x-api-key: "${api_key}"
+                json: |-
+                  root["device_id"] = "shrooly-1";
+                on_error:
+                  then:
+                    - lambda: |-
+                        ESP_LOGE("cmd", "Command poll HTTP error");
+                on_response:
+                  then:
+                    - lambda: |-
+                        ESP_LOGI("cmd", "Response code: %d, body length: %d", response->status_code, body.length());
+                        if (body.length() > 0) {
+                          ESP_LOGI("cmd", "Body: %.200s", body.c_str());
+                        }
+                        if (response->status_code != 200 || body.length() < 10) return;
+
+                        // Parse single command: {id, endpoint, value}
+                        int cmd_id = 0;
+                        std::string endpoint_str;
+                        float value = 0;
+
+                        json::parse_json(body, [&cmd_id, &endpoint_str, &value](JsonObject root) -> bool {
+                          // id and value come as strings from PostgreSQL
+                          const char* id_str = root["id"] | "0";
+                          cmd_id = atoi(id_str);
+                          const char* ep = root["endpoint"] | "";
+                          const char* val = root["value"] | "0";
+                          endpoint_str = std::string(ep);
+                          value = atof(val);
+                          ESP_LOGI("cmd", "Parsed: id=%d ep=%s val=%.1f", cmd_id, ep, value);
+                          return true;
+                        });
+
+                        if (cmd_id == 0 || endpoint_str.empty()) return;
+
+                        ESP_LOGI("cmd", "Command %d: %s = %.1f", cmd_id, endpoint_str.c_str(), value);
+
+                        esphome::number::Number* target = nullptr;
+
+                        if (endpoint_str == "target_humidity") target = id(target_humidity);
+                        else if (endpoint_str == "humidifier__speed") target = id(humidifier_speed);
+                        else if (endpoint_str == "humidity_hysteresis") target = id(humidity_hysteresis);
+                        else if (endpoint_str == "temperature_target") target = id(temperature_target);
+                        else if (endpoint_str == "temperature_hysteresis") target = id(temperature_hysteresis);
+                        else if (endpoint_str == "temperature_warning_minimum") target = id(temperature_warning_minimum);
+                        else if (endpoint_str == "temperature_warning_maximum") target = id(temperature_warning_maximum);
+                        else if (endpoint_str == "air_exchange__period__min_") target = id(air_exchange_period_min);
+                        else if (endpoint_str == "air_exchange__run_duration__s_") target = id(air_exchange_run_sec);
+                        else if (endpoint_str == "air_exchange__speed") target = id(air_exchange_speed);
+                        else if (endpoint_str == "lights__sunrise_hour") target = id(sunrise_hour);
+                        else if (endpoint_str == "lights__duration__hours_") target = id(light_hours);
+                        else if (endpoint_str == "white_led_intensity") target = id(white_intensity);
+                        else if (endpoint_str == "red_led_intensity") target = id(color_r);
+                        else if (endpoint_str == "green_led_intensity") target = id(color_g);
+                        else if (endpoint_str == "blue_led_intensity") target = id(color_b);
+
+                        if (target != nullptr) {
+                          auto call = target->make_call();
+                          call.set_value(value);
+                          call.perform();
+                          ESP_LOGI("cmd", "Applied: %s = %.1f", endpoint_str.c_str(), value);
+                        } else {
+                          ESP_LOGW("cmd", "Unknown: %s", endpoint_str.c_str());
                         }
 
   # Water level check interval (every 30 seconds)
