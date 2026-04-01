@@ -1,5 +1,7 @@
 substitutions:
   device_version: "0.9"
+  api_url: "https://api-shrooms.xn--datastrm-c5a.com/api/readings"
+  api_key: "6efaae302029c195d96ac50f571ba8a9e4298937211d31e323e6898aaff8fbcb"
 
 esphome:
   name: openshrooly
@@ -11,6 +13,7 @@ esphome:
   platformio_options:
     build_flags:
       - -Wno-cpp  # Suppress preprocessor warnings (including deprecation warnings)
+      - -Wno-deprecated-declarations  # Suppress deprecation warnings from ESPHome API changes
 
   on_boot:
     priority: 600  # Very early boot
@@ -71,7 +74,7 @@ esp32:
     type: arduino
 
 logger:
-  level: INFO
+  level: DEBUG
 
 
 api:
@@ -80,6 +83,10 @@ api:
 ota:
   platform: esphome
 
+http_request:
+  useragent: "openshrooly/${device_version}"
+  timeout: 10s
+  verify_ssl: false
 
 external_components:
   - source:
@@ -88,6 +95,8 @@ external_components:
 # LVGL is now a native component in ESPHome 2024.8.0+
 
 wifi:
+  ssid: "Buksemand-IoT"
+  password: "@@MrCheddyEddie99.55"
   ap:
     ssid: "OpenShrooly"
     manual_ip:
@@ -112,6 +121,32 @@ captive_portal:
 # Scripts will be loaded after components to ensure all IDs are available
 
 interval:
+  # Post sensor data to remote API every 60 seconds
+  - interval: 60s
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - http_request.post:
+                url: "${api_url}"
+                request_headers:
+                  Content-Type: "application/json"
+                  x-api-key: "${api_key}"
+                json: |-
+                  root["temperature"] = id(temperature).state;
+                  root["humidity"] = id(humidity).state;
+                  root["water_level"] = id(water_level_percent).state;
+                  root["fan_rpm"] = id(fan_tach_internal).state;
+                on_response:
+                  then:
+                    - lambda: |-
+                        if (response->status_code == 201) {
+                          ESP_LOGI("api", "Sensor data posted successfully");
+                        } else {
+                          ESP_LOGW("api", "API post failed with status %d", response->status_code);
+                        }
+
   # Water level check interval (every 30 seconds)
   - interval: 1s
     then:
